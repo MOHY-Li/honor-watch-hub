@@ -51,8 +51,8 @@ class GlassShader(context: Context) {
 
     fun asShader(): RuntimeShader = shader
 
-    companion object {
-        /** 真玻璃需要 API 33+（RuntimeShader）。 */
-        fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    }
+}
+
+object GlassSupport {
+    fun isAvailable(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 }

@@ -70,7 +70,7 @@ class GlassCard @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
-        if (GlassShader.isSupported()) {
+        if (GlassSupport.isAvailable()) {
             runCatching {
                 shaderWrapper = GlassShader(context)
                 runtimeShader = shaderWrapper?.asShader()
@@ -97,7 +97,9 @@ class GlassCard @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        node?.setPosition(0, 0, w, h)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            node?.setPosition(0, 0, w, h)
+        }
     }
 
     override fun onDraw(canvas: Canvas) {

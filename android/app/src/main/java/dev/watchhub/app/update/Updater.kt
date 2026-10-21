@@ -241,7 +241,7 @@ object Updater {
 
     fun install(ctx: Context): InstallResult {
         val f = apkFile(ctx)
-        if (!f.exists()) return InstallResult.Failed("APK 不存在，可能被清陆了")
+        if (!f.exists()) return InstallResult.Failed("APK 不存在，可能被清理了")
         if (f.length() < 100000) return InstallResult.Failed("APK 不完整：" + f.length() + " 字节")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -254,9 +254,9 @@ object Updater {
                         Uri.parse("package:" + ctx.packageName),
                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
-                InstallResult.NeedPermission("请允让 WatchHub 安装应用，然后返回重试")
+                InstallResult.NeedPermission("请允许 WatchHub 安装应用，然后返回重试")
             } catch (t: Throwable) {
-                InstallResult.Failed("打不开授权页，请手动到 设置-应用-特殊访问权限,安装未知应用")
+                InstallResult.Failed("打不开授权页，请手动到 设置-应用-特殊访问权限 > 安装未知应用")
             }
         }
 
@@ -271,7 +271,7 @@ object Updater {
             LogBus.post("已拉起系统安装器")
             InstallResult.Started
         } catch (t: Throwable) {
-            InstallResult.Failed("勩起安装器失败: " + t.javaClass.simpleName + ": " + t.message)
+            InstallResult.Failed("拉起安装器失败: " + t.javaClass.simpleName + ": " + t.message)
         }
     }
 
