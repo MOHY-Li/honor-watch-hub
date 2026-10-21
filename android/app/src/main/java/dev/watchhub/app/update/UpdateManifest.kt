@@ -34,7 +34,9 @@ data class UpdateManifest(
             val code = o.optLong("versionCode", -1)
             val url = o.optString("apkUrl").trim()
             val sha = o.optString("sha256").trim().lowercase()
-            if (code <= 0 || url.isBlank() || sha.length != 64) null
+            // sha 允许为空（GitHub API 线路可能拿不到 digest），
+            // 但非空时必须是 64 位十六进制
+            if (code <= 0 || url.isBlank() || (sha.isNotEmpty() && sha.length != 64)) null
             else UpdateManifest(
                 versionCode = code,
                 versionName = o.optString("versionName", "?"),

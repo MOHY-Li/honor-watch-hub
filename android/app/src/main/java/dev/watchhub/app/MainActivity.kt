@@ -285,8 +285,8 @@ class MainActivity : AppCompatActivity() {
         b.btnUpdate.isEnabled = false
         b.btnUpdate.text = "检查中…"
         Thread {
-            val url = BuildConfig.UPDATE_MANIFEST_URL.ifBlank { Updater.DEFAULT_MANIFEST_URL }
-            val result = Updater.check(url, Updater.currentVersionCode())
+            // 传空 = 让 Updater 依次尝试所有镜像
+            val result = Updater.check("", Updater.currentVersionCode())
             runOnUiThread {
                 b.btnUpdate.isEnabled = true
                 when (result) {

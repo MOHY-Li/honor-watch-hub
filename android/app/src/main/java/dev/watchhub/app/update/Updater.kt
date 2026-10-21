@@ -33,30 +33,126 @@ object Updater {
     private const val TAG = "WatchHubUpdater"
     private const val APK_NAME = "watchhub-update.apk"
 
-    /** 默认清单地址，指向仓库 raw 文件。CI 每次发布时覆盖它。 */
-    val DEFAULT_MANIFEST_URL: String =
-        "https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json"
+    /**
+     * 清单的候选地址，按顺序尝试。
+     *
+     * 为什么要多源：raw.githubusercontent.com 在国内经常被墙或不稳定，
+     * 单一地址会导致「检查更新」直接失败。jsDelivr 走国内 CDN，
+     * GitHub API 又是另一条线路，三个都挂了才算真失败。
+     */
+    val MANIFEST_URLS: List<String> = listOf(
+        // 1. jsDelivr：国内访问通常最快
+        "https://cdn.jsdelivr.net/gh/MOHY-Li/honor-watch-hub@master/dist/latest.json",
+        // 2. raw：官方源，海外/代理环境最稳
+        "https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json",
+        // 3. GitHub API：另一条独立线路（返回 Release 信息，需要转换）
+        "https://api.github.com/repos/MOHY-Li/honor-watch-hub/releases/latest",
+    )
 
-    /** 检查新版本。网络操作，必须在后台线程调用。 */
+    /** 兼容旧调用点。 */
+    val DEFAULT_MANIFEST_URL: String get() = MANIFEST_URLS.first()
+
+    /**
+     * 检查新版本。网络操作，必须在后台线程调用。
+     *
+     * @param manifestUrl 指定单一地址（测试用）；传空则依次尝试 [MANIFEST_URLS]
+     */
     fun check(
         manifestUrl: String,
         currentCode: Long,
         // 可注入，方便单测；生产调用用默认值
         sdkInt: Int = Build.VERSION.SDK_INT,
     ): UpdateCheck {
-        return try {
-            val json = Http.getString(manifestUrl)
-            val m = UpdateManifest.parse(json)
-                ?: return UpdateCheck.Failed("清单格式不对（不是合法的更新 JSON）")
-            when {
-                m.versionCode <= currentCode -> UpdateCheck.UpToDate(currentCode)
-                m.minSdk > sdkInt -> UpdateCheck.Unsupported(m)
-                else -> UpdateCheck.Available(m)
+        val candidates = if (manifestUrl.isBlank()) MANIFEST_URLS else listOf(manifestUrl)
+        val errors = mutableListOf<String>()
+        for (url in candidates) {
+            try {
+                val json = Http.getString(url, mapOf("Accept" to "application/vnd.github+json"))
+                val m = parseAny(json)
+                if (m == null) {
+                    errors.add("$url: 格式不对")
+                    continue
+                }
+                return when {
+                    m.versionCode <= currentCode -> UpdateCheck.UpToDate(currentCode)
+                    m.minSdk > sdkInt -> UpdateCheck.Unsupported(m)
+                    else -> UpdateCheck.Available(m)
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "check failed: $url", t)
+                errors.add("${t.javaClass.simpleName}: ${t.message}")
             }
-        } catch (t: Throwable) {
-            Log.w(TAG, "check failed", t)
-            UpdateCheck.Failed(t.message ?: t.javaClass.simpleName)
         }
+        return UpdateCheck.Failed("所有清单地址都失败：${errors.joinToString(" | ").take(300)}")
+    }
+
+    /**
+     * 解析更新信息，兼容两种格式：
+     *  - 我们自己的 latest.json
+     *  - GitHub Releases API 的 /releases/latest 响应
+     */
+    fun parseAny(json: String): UpdateManifest? {
+        UpdateManifest.parse(json)?.let { return it }
+        return parseGitHubRelease(json)
+    }
+
+    /**
+     * GitHub Releases API 响应 → UpdateManifest。
+     *
+     * 字段对应：
+     *   tag_name     v1.2.0         -> versionName
+     *   assets[].name WatchHub.apk  -> apkUrl / sizeBytes
+     *   body                        -> changelog
+     * 注意：这里拿不到真正的 versionCode，用 tag 里的 x.y.z 换算。
+     */
+    fun parseGitHubRelease(json: String): UpdateManifest? = try {
+        val o = org.json.JSONObject(json)
+        val tag = o.optString("tag_name").trim()
+        if (tag.isBlank()) null else {
+            val assets = o.optJSONArray("assets")
+            var apkUrl = ""
+            var size = 0L
+            var sha = ""
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val a = assets.optJSONObject(i) ?: continue
+                    val name = a.optString("name")
+                    if (name.endsWith(".apk", ignoreCase = true)) {
+                        apkUrl = a.optString("browser_download_url")
+                        size = a.optLong("size", 0)
+                        // GitHub 从 2024 起在 asset 上提供 digest: sha256:xxx
+                        sha = a.optString("digest").removePrefix("sha256:").lowercase()
+                        break
+                    }
+                }
+            }
+            if (apkUrl.isBlank()) null else {
+                UpdateManifest(
+                    versionCode = versionCodeOf(tag),
+                    versionName = tag.removePrefix("v"),
+                    apkUrl = apkUrl,
+                    // 没有 digest 时留空，由 verifyFile 只校验大小（GitHub 走 HTTPS）
+                    sha256 = sha,
+                    sizeBytes = size,
+                    changelog = o.optString("body", "").take(500),
+                    minSdk = 24,
+                    publishedAt = o.optString("published_at", ""),
+                )
+            }
+        }
+    } catch (_: Throwable) {
+        null
+    }
+
+    /** `v1.2.3` -> 10203（主*10000 + 次*100 + 修） */
+    fun versionCodeOf(tag: String): Long {
+        val nums = tag.removePrefix("v").split(".", "-", "+")
+            .mapNotNull { it.takeWhile { c -> c.isDigit() }.toIntOrNull() }
+        if (nums.isEmpty()) return 0L
+        val major = nums.getOrElse(0) { 0 }
+        val minor = nums.getOrElse(1) { 0 }
+        val patch = nums.getOrElse(2) { 0 }
+        return major * 10_000L + minor * 100L + patch
     }
 
     /** 已下载的 APK 位置（私有外部目录，不需要存储权限）。 */
@@ -102,6 +198,10 @@ object Updater {
         if (!f.exists()) return false to "下载的文件不存在"
         if (m.sizeBytes > 0 && f.length() != m.sizeBytes) {
             return false to "大小不符（期望 ${m.sizeBytes}，实际 ${f.length()}）"
+        }
+        // GitHub API 那条线路可能拿不到 digest，此时只校验大小
+        if (m.sha256.isBlank()) {
+            return true to "校验通过（来源为 GitHub Releases，仅校验大小）"
         }
         val actual = sha256(f)
         return if (actual.equals(m.sha256, ignoreCase = true)) {
