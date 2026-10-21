@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
         b.btnToggle.text = if (running) "停止中枢" else "启动中枢"
         b.tvStatus.text = if (running) "中枢运行中" else "未启动"
 
-        val engineStatuses = runCatching { Engine(this).statuses() }.getOrDefault(emptyList())
+        val engineStatuses = runCatching { Engine.get(this).statuses() }.getOrDefault(emptyList())
         val enabled = engineStatuses.count { it.enabled }
         val ok = engineStatuses.count { it.enabled && it.lastError == null && it.lastOk > 0 }
         b.tvSub.text = if (running) {
@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
             item.swEnabled.setOnCheckedChangeListener { _, v -> setEnabled(st.name, v) }
             item.btnCheck.setOnClickListener {
                 Thread {
-                    val n = runCatching { Engine(this).checkNow(st.name) }.getOrDefault(0)
+                    val n = runCatching { Engine.get(this).checkNow(st.name) }.getOrDefault(0)
                     runOnUiThread {
                         toast(if (n > 0) "${st.name}: 新增 $n 条" else "${st.name}: 无新内容")
                         refresh()

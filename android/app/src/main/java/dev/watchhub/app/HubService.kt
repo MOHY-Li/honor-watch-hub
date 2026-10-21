@@ -36,7 +36,7 @@ class HubService : Service() {
     override fun onCreate() {
         super.onCreate()
         Notifier.ensureChannels(this)
-        engine = Engine(this)
+        engine = Engine.get(this)
         engine.start()
         startForeground(FOREGROUND_ID, Notifier.serviceNotification(this, "中枢已启动"))
     }

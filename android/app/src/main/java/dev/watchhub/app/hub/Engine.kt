@@ -15,12 +15,13 @@ import dev.watchhub.app.Notifier
  * 每个源独立倒计时：检查完一个源后把它自己的 nextCheck 往后推 interval，
  * 而不是全局 sleep interval（否则 30s 的 cron 会拖累 30min 的 RSS）。
  */
-class Engine(private val ctx: Context) {
+class Engine private constructor(private val ctx: Context) {
 
     private val repo = SourceRepo(ctx)
     private val store = Store(ctx)
     private val lastRun = HashMap<String, Long>()
-    private val busy = HashSet<String>()
+    /** 源名 -> 开始检查的时间戳。用于发现「卡住不返回」的源。 */
+    private val inFlight = HashMap<String, Long>()
 
     @Volatile
     var running = false
@@ -45,12 +46,23 @@ class Engine(private val ctx: Context) {
             // cron 必须每分钟碰一次（否则会漏掉整分钟）
             val intervalMs = if (src is CronSource) 60_000L else src.intervalSec * 1000L
             if (now < next + intervalMs) continue
-            if (!busy.add(src.name)) continue
+
+            // 重入保护：同一源不并发检查。
+            // 但如果上一次已经卡了很久（网络挂住、DNS 不返回），
+            // 就放行重试并记一条警告——否则这个源会永久瘫痪。
+            val startedAt = inFlight[src.name]
+            if (startedAt != null) {
+                val stuckMs = now - startedAt
+                if (stuckMs < STUCK_TIMEOUT_MS) continue
+                log("[${src.name}] 上次检查已卡住 ${stuckMs / 1000}s，强制重试")
+            }
+
+            inFlight[src.name] = now
             lastRun[src.name] = now
             try {
                 produced += checkOne(src)
             } finally {
-                busy.remove(src.name)
+                inFlight.remove(src.name)
             }
         }
         return produced
@@ -149,6 +161,25 @@ class Engine(private val ctx: Context) {
 
     companion object {
         private const val TAG = "WatchHubEngine"
+
+        /** 单源检查的最长容忍时间，超过视为卡死（FlClash 的 updatingStaleTimeout 同理）。 */
+        private const val STUCK_TIMEOUT_MS = 3 * 60 * 1000L
+
+        /**
+         * 进程级单例。
+         *
+         * 为什么必须是单例：Engine 持有 lastRun / busy 这些「谁上次什么时候跑的」状态。
+         * 如果 UI 每次 refresh 都 new 一个，新实例的 lastRun 是空的，
+         * 会让「立即检查」把倒计时清零，紧接着后台 tick 又立刻重查一遍。
+         * FlClash 用 Riverpod 的 @Riverpod(keepAlive: true) 解决同一问题。
+         */
+        @Volatile
+        private var instance: Engine? = null
+
+        fun get(ctx: Context): Engine =
+            instance ?: synchronized(this) {
+                instance ?: Engine(ctx.applicationContext).also { instance = it }
+            }
     }
 }
 

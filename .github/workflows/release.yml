@@ -7,6 +7,12 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# 同分支新提交取消旧构建，省 CI 时间；
+# 但 tag 触发的发布绝不取消（参考 FlClash 的做法）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
 permissions:
   contents: write
 
