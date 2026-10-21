@@ -1,0 +1,32 @@
+# WatchHub 运行配置（可直接删改）
+# 结构：名字 -> 配置。改完重启服务端生效。
+
+# 1) 番剧更新（把 url 换成你在 Bangumi 追的条目的 RSS）
+bangumi:
+  kind: rss
+  url: https://api.bgm.tv/rss/subject/425998
+  interval: 600
+  limit: 10
+  priority: high
+  tags: [anime]
+
+# 2) 定时提醒：工作日喝水
+drink_water:
+  kind: cron
+  times: ["09:30", "11:30", "14:30", "16:30"]
+  days: [0, 1, 2, 3, 4]
+  title: 喝水
+  body: 起来走两步，喝口水
+  priority: high
+  tags: [health]
+
+# 3) 任意网页变化（抢票/补货/公告）
+page_watch:
+  kind: hash
+  url: https://example.com/product/123
+  interval: 1800
+  title: 商品页有变化
+  body: 价格或库存更新了
+  priority: high
+  tags: [shopping]
+  enabled: false

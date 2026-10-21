@@ -1,0 +1,9 @@
+# 内网穿透示例：把本机 8787 暴露成 https://watchhub.example.com
+# 前提：你有域名 + 已解析到本机；Caddy 会自动申请 Let's Encrypt 证书
+watchhub.example.com {
+    reverse_proxy 127.0.0.1:8787 {
+        # SSE 必须关闭缓冲
+        flush_interval -1
+    }
+    encode gzip
+}

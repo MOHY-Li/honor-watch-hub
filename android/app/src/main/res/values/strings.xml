@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WatchHub</string>
+    <string name="channel_name">WatchHub 推送</string>
+    <string name="channel_desc">网站/番剧更新与定时提醒，镜像到手表</string>
+    <string name="service_channel_name">WatchHub 连接</string>
+    <string name="service_channel_desc">保持与服务端的长连接</string>
+</resources>

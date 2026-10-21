@@ -1,0 +1,16 @@
+retry: 3000
+event: hello
+data: {"server": "1.0.0", "now": "2026-10-21T12:13:03+08:00", "cursor": 1}
+
+id: 1
+event: notification
+data: {"id": 1, "ts": "2026-10-21T12:13:03+08:00", "title": "历史通知", "body": "连接时补发", "detail": "", "priority": "default", "tags": [], "url": "", "source": "manual", "key": "f:1"}
+
+id: 2
+event: notification
+data: {"id": 2, "ts": "2026-10-21T12:13:04+08:00", "title": "番剧更新 第2话", "body": "已更新 · bangumi", "detail": "", "priority": "high", "tags": ["anime"], "url": "", "source": "manual", "key": "f:2"}
+
+id: 3
+event: notification
+data: {"id": 3, "ts": "2026-10-21T12:13:04+08:00", "title": "番剧更新 第3话", "body": "已更新 · bangumi", "detail": "", "priority": "high", "tags": ["anime"], "url": "", "source": "manual", "key": "f:3"}
+

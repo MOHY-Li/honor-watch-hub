@@ -1,0 +1,10 @@
+data/
+*.db
+.toolchain/
+.gradle/
+build/
+local.properties
+__pycache__/
+*.pyc
+.idea/
+*.iml

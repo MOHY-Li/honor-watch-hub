@@ -1,0 +1,54 @@
+# WatchHub 源配置示例（把本文件复制成 sources.yaml 再改）
+#
+# 语法是本项目自带的极简 YAML：两级缩进、只支持 key: value。
+# 列表用 [a, b]；布尔 true/false；数字直接写。
+# 改了 sources.yaml 需要重启服务；运行时也可以调 POST /api/v1/sources/<name> {"enabled":false}
+
+# ---- 1) 番剧更新：Bangumi 的公开 RSS（按你追的番的章节页也行）----
+bangumi:
+  kind: rss
+  url: https://api.bgm.tv/rss/subject/425998   # 换成你自己的番/条目 RSS
+  interval: 600
+  limit: 10
+  priority: default
+  tags: [anime, 番剧]
+
+# ---- 2) 一般网站更新：任意 RSS/Atom ----
+blog:
+  kind: rss
+  url: https://example.com/feed.xml
+  interval: 1800
+  limit: 10
+  tags: [web]
+
+# ---- 3) JSON API：任意返回数组的结构（GitHub releases 之类）----
+github_release:
+  kind: json
+  url: https://api.github.com/repos/owner/repo/releases
+  list_path: ""            # "" 表示顶层就是数组；也可写 data.items
+  limit: 5
+  interval: 3600
+  priority: low
+  tags: [dev]
+  # fields 用点号路径映射到 Notification 字段
+  # 由于极简解析器不支持嵌套，字段映射请写在 config 的 JSON 形态里（见 README）
+
+# ---- 4) 网页抓取：用正则从 HTML 抠条目 ----
+# 命名组可用：title / body / url / key
+news:
+  kind: regex
+  url: https://example.com/news
+  encoding: utf-8
+  interval: 900
+  limit: 10
+  pattern: <a href="(?P<url>/news/\d+)">(?P<title>[^<]+)</a>
+
+# ---- 5) 整页指纹：只要能判断「这个页面变了」就够 ----
+price_watch:
+  kind: hash
+  url: https://example.com/product/123
+  interval: 3600
+  title: 商品页有变化
+  body: 价格/库存页面内容更新了
+  priority: high
+  tags: [shopping]
