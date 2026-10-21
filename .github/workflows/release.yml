@@ -91,11 +91,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp dist/latest.json /tmp/latest.json
           git fetch origin master
           git checkout master
           mkdir -p dist
-          cp "$GITHUB_WORKSPACE/dist/latest.json" dist/latest.json 2>/dev/null || true
+          cp /tmp/latest.json dist/latest.json
           git diff --quiet dist/latest.json && echo "清单无变化" && exit 0
-          git add dist/latest.json
+          git add -f dist/latest.json
           git commit -m "chore: 更新清单 ${{ steps.ver.outputs.name }}"
           git push origin master

@@ -8,6 +8,6 @@ __pycache__/
 *.pyc
 .idea/
 *.iml
-dist/
+dist/*
+!dist/latest.json
 
-dist/*.apk
