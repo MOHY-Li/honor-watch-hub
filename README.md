@@ -21,11 +21,11 @@
 第一版把服务端放在电脑上（Python），但那样要求电脑一直开机、要开端口、要配 token。
 现在把服务端整个搬进 APK：省掉网络中间环节，也省掉所有配置。
 
-## 装什么
+## 下载
 
-```
-dist/WatchHub.apk
-```
+- **最新版**：https://github.com/MOHY-Li/honor-watch-hub/releases/latest
+- **在 App 内更新**：设置里点「检查更新」→ 下载 → 系统安装器确认（会校验 SHA-256）
+- **本地构建**：跑 `build.bat`，产物在 `dist/WatchHub.apk`
 
 安装后：
 
@@ -112,6 +112,38 @@ key 是 `名字+年月日时分`，所以同一分钟绝不会重复，重启也
 - **保活**：前台服务每 20 秒 tick 一次，cron 精度 20 秒内。
   另配开机自启 + 电池白名单跳转。
 
+## 自更新怎么工作
+
+Android 不允许应用静默装 APK（系统安全限制），所以流程是标准的：
+
+```
+检查 dist/latest.json  →  versionCode 比大小
+        ↓ 有新版
+DownloadManager 下载 APK
+        ↓
+SHA-256 + 文件大小校验   ← 不通过就删除，绝不安装
+        ↓
+FileProvider 暴露 URI → 拉起系统安装器 → 用户点「安装」
+```
+
+- 清单地址硬编码在 `Updater.DEFAULT_MANIFEST_URL`，指向本仓库 master 的 `dist/latest.json`
+- 进 App 前台会静默检查一次（失败不打扰），也可手动点「检查更新」
+- **必须校验 SHA-256**：更新包走公网，不校验等于给了别人替换 APK 的机会
+
+发布新版本（一条命令）：
+
+```bash
+# 1. 改 android/app/build.gradle.kts 里的 versionCode（+1）和 versionName
+# 2. 提交
+git commit -am "feat: xxx"
+git tag v1.2.0
+git push origin master --tags
+```
+
+CI 会自动：跑 38 项测试 → 构建 APK → 发 GitHub Release（资产名 `WatchHub.apk`）
+→ 生成 `dist/latest.json`（含真实 SHA-256）→ 提交回 master。
+用户端下次打开 App 就能看到更新。
+
 ## 代码结构
 
 ```
@@ -129,7 +161,10 @@ android/app/src/main/java/dev/watchhub/app/
 │  └─ Engine.kt       调度引擎：每个源独立倒计时
 ├─ HubService.kt      前台服务，20s 心跳
 ├─ Notifier.kt        通知桥（HIGH 渠道 + 长度裁剪）
-├─ MainActivity.kt    状态 / 源列表 / 历史 / 日志
+├─ update/
+│  ├─ UpdateManifest.kt 更新清单解析（容错 HTML/空响应）
+│  └─ Updater.kt        check / 下载 / SHA-256 校验 / 拉起安装器
+├─ MainActivity.kt    状态 / 源列表 / 历史 / 日志 / 检查更新
 └─ SourcesActivity.kt JSON 配置编辑（保存前校验）
 ```
 
@@ -141,12 +176,14 @@ build.bat
 
 输出 `dist/WatchHub.apk`。自带 JDK 17 + Android SDK + Gradle 在 `.toolchain/`（不入库）。
 
-测试 22 项，全部不依赖真机：
+测试 38 项，全部不依赖真机：
 
 ```
-SourcesTest (12)       clip / 工厂 / JSON 路径 / 模板 / cron 命中与星期过滤 / 首轮语义
-NotifTest (3)          通知模型解析与缺省值
-HttpSourcesTest (7)    真起本地 HTTP 服务，跑通 RSS/Atom/JSON/Regex/Hash + 404 + 拒绝连接
+SourcesTest (12)        clip / 工厂 / JSON 路径 / 模板 / cron 命中与星期过滤 / 首轮语义
+NotifTest (3)           通知模型解析与缺省值
+HttpSourcesTest (7)     真起本地 HTTP 服务，跑通 RSS/Atom/JSON/Regex/Hash + 404 + 拒绝连接
+UpdateTest (11)         清单解析边界 / SHA-256 已知向量 / 版本比较
+UpdateCheckE2ETest (5)  真起 HTTP 服务跑检查逻辑（含 HTML 响应、连接失败）
 ```
 
 ## 已知限制
