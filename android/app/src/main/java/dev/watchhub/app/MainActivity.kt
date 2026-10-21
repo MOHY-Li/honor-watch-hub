@@ -19,6 +19,8 @@ import dev.watchhub.app.hub.SourceRepo
 import dev.watchhub.app.hub.Store
 import dev.watchhub.app.update.UpdateCheck
 import dev.watchhub.app.update.UpdateManifest
+import dev.watchhub.app.ui.glass.FloatingDock
+import dev.watchhub.app.ui.glass.GlassCard
 import dev.watchhub.app.update.Updater
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -105,6 +107,58 @@ class MainActivity : AppCompatActivity() {
             repo.reset()
             refresh()
             toast("已恢复默认配置")
+        }
+
+        setupDock()
+        // 玻璃卡片需要「背后的内容」才能折射。这里把窗口背景截一张图喂进去。
+        b.root.post { refreshGlassBackdrop() }
+    }
+
+    /** 配置悬浮切换栏。4 个 tab：状态 / 数据源 / 通知 / 设置。 */
+    private fun setupDock() {
+        b.dock.items = listOf(
+            FloatingDock.Item(0, "状态", R.drawable.ic_home),
+            FloatingDock.Item(1, "数据源", R.drawable.ic_sources),
+            FloatingDock.Item(2, "通知", R.drawable.ic_bell),
+            FloatingDock.Item(3, "设置", R.drawable.ic_settings),
+        )
+        b.dock.selectedIndex = 0
+        b.dock.onSelect = { index -> onDockSelected(index) }
+    }
+
+    /**
+     * dock 切换：滚动到对应区块。
+     *
+     * 没有做成 ViewPager 是有意的 —— 这个 App 只有一屏内容，
+     * 分页会让人以为有 4 个独立页面，滚动锚点更符合直觉。
+     */
+    private fun onDockSelected(index: Int) {
+        val target = when (index) {
+            0 -> b.cardStatus
+            1 -> b.llSources
+            2 -> b.tvHistory
+            else -> b.btnBattery
+        }
+        b.scroll.smoothScrollTo(0, maxOf(0, target.top - 24))
+    }
+
+    /**
+     * 抓一张窗口背景给 GlassCard 做折射源。
+     *
+     * GlassCard 的着色器需要「背后的内容」作为输入。
+     * 做法：把根布局画到一个 Bitmap 上，再喂给每张玻璃卡片。
+     * 内容变化时（滚动、刷新）重新抓一次即可。
+     */
+    private fun refreshGlassBackdrop() {
+        if (b.root.width == 0 || b.root.height == 0) return
+        val bmp = android.graphics.Bitmap.createBitmap(
+            b.root.width, b.root.height, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val c = android.graphics.Canvas(bmp)
+        b.root.draw(c)
+        for (id in listOf(b.cardStatus)) {
+            id.backdropProvider = { bmp }
+            id.refreshBackdrop()
         }
     }
 

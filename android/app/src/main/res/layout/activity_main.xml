@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
     android:background="#FFF7F8FA">
+
+<ScrollView
+    android:id="@+id/scroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:paddingBottom="104dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,13 +36,11 @@
             android:textColor="#FF6B7280" />
 
         <!-- 状态卡 -->
-        <com.google.android.material.card.MaterialCardView
+        <dev.watchhub.app.ui.glass.GlassCard
+            android:id="@+id/cardStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFFFFFFF">
+            android:layout_marginTop="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -115,7 +120,7 @@
                     android:text="关闭电池限制（重要）"
                     style="@style/Widget.Material3.Button.TextButton" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </dev.watchhub.app.ui.glass.GlassCard>
 
         <!-- 源列表 -->
         <TextView
@@ -210,3 +215,12 @@
             android:textColor="#FF6B7280" />
     </LinearLayout>
 </ScrollView>
+
+    <!-- 悬浮切换栏：悬浮在内容上方，底部留出安全距离 -->
+    <dev.watchhub.app.ui.glass.FloatingDock
+        android:id="@+id/dock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom" />
+
+</FrameLayout>
