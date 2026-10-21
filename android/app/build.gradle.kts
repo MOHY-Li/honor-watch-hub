@@ -11,8 +11,12 @@ android {
         applicationId = "dev.watchhub.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // versionCode 必须单调递增，自更新靠它比较新旧
+        versionCode = 2
+        versionName = "1.1.0"
+
+        // 自更新清单地址（CI 发布时覆盖 dist/latest.json）
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json\"")
     }
 
     buildTypes {
@@ -27,7 +31,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { viewBinding = true }
+    testOptions {
+        unitTests {
+            // JVM 单测里 android.util.Log / Build.VERSION 等是空壳，
+            // 打开后返回默认值，避免 "not mocked" 异常。
+            isReturnDefaultValues = true
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
 }
 
 dependencies {

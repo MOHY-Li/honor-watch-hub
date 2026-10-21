@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 只暴露「下载目录里的更新包」，不要暴露整个存储。 -->
+<paths>
+    <external-files-path name="updates" path="Download/" />
+    <files-path name="updates_internal" path="." />
+</paths>
