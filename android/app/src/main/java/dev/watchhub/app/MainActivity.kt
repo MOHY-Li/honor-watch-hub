@@ -340,7 +340,13 @@ class MainActivity : AppCompatActivity() {
                 if (ok) {
                     b.btnUpdate.text = "安装 " + m.versionName
                     toast("下载完成，正在打开安装器")
-                    Updater.install(this).onFailure { toast("拉起安装器失败：" + it.message) }
+                    when (val r = Updater.install(this)) {
+                        Updater.InstallResult.Started -> Unit
+                        is Updater.InstallResult.NeedPermission -> {
+                            toast(r.why)
+                        }
+                        is Updater.InstallResult.Failed -> toast(r.reason)
+                    }
                 } else {
                     b.btnUpdate.text = "重新下载 " + m.versionName
                     toast(msg)
