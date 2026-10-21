@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -9,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="18dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -22,126 +23,55 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="自建通知中枢 → 手机通知 → 荣耀手表"
+            android:layout_marginTop="2dp"
+            android:text="本机中枢 · 全部在手机上跑，不依赖电脑"
             android:textSize="13sp"
             android:textColor="#FF6B7280" />
 
+        <!-- 状态卡 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFFFFFFF"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
+            app:cardBackgroundColor="#FFFFFFFF">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="服务器"
-                    android:textStyle="bold"
-                    android:textColor="#FF1A1D24" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilUrl"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:hint="服务器地址"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textUri"
-                        android:maxLines="1"
-                        android:text="http://192.168.1.10:8787" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilToken"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Token"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etToken"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/swStartOnBoot"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="开机自动连接" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSave"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="保存"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnTest"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
-                        android:text="测试连接"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFFFFFFF"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="16dp">
 
                 <TextView
                     android:id="@+id/tvStatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="未连接"
+                    android:text="未启动"
                     android:textSize="15sp"
+                    android:textStyle="bold"
                     android:textColor="#FF374151" />
+
+                <TextView
+                    android:id="@+id/tvSub"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="点下面按钮启动本地中枢"
+                    android:textSize="12sp"
+                    android:textColor="#FF6B7280" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/swBoot"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="开机自动启动" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
@@ -149,25 +79,91 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="开始连接" />
+                        android:text="启动中枢" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnTestNotif"
+                        android:id="@+id/btnTest"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
-                        android:text="本地测试通知"
+                        android:text="测试通知"
                         style="@style/Widget.Material3.Button.OutlinedButton" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBattery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="关闭电池限制（重要）"
+                    style="@style/Widget.Material3.Button.TextButton" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- 源列表 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="数据源"
+            android:textStyle="bold"
+            android:textColor="#FF1A1D24" />
+
+        <LinearLayout
+            android:id="@+id/llSources"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditSources"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="编辑配置 (JSON)"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnResetSources"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="恢复默认"
+                style="@style/Widget.Material3.Button.TextButton" />
+        </LinearLayout>
+
+        <!-- 历史 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="最近通知"
+            android:textStyle="bold"
+            android:textColor="#FF1A1D24" />
+
+        <TextView
+            android:id="@+id/tvHistory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textSize="12sp"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FF4B5563" />
+
+        <!-- 手表提示 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="手表端设置（荣耀运动健康）"
+            android:text="让通知上手表"
             android:textStyle="bold"
             android:textColor="#FF1A1D24" />
 
@@ -175,15 +171,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="1. 手机蓝牙连接手表\n2. 荣耀运动健康 → 设备 → 消息通知 → 开启「WatchHub」\n3. 设置 → 电池 → 关闭本应用的后台限制（或允许自启动）\n4. 若想更强提醒，把 WatchHub 设为「重要」通知类别"
+            android:text="荣耀运动健康 → 设备 → 消息通知 → 勾选 WatchHub\n手机设置 → 通知 → WatchHub → 「WatchHub 推送」设为重要\n手机设置 → 电池 → 应用启动管理 → WatchHub 手动全开"
             android:textSize="13sp"
             android:lineSpacingExtra="4dp"
             android:textColor="#FF4B5563" />
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="18dp"
             android:text="日志"
             android:textStyle="bold"
             android:textColor="#FF1A1D24" />
@@ -198,4 +194,3 @@
             android:textColor="#FF6B7280" />
     </LinearLayout>
 </ScrollView>
-

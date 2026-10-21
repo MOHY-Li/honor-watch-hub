@@ -28,8 +28,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SourcesActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:label="源配置" />
+
         <service
-            android:name=".SseService"
+            android:name=".HubService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
@@ -44,4 +50,3 @@
         </receiver>
     </application>
 </manifest>
-

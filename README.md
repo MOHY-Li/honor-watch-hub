@@ -1,199 +1,159 @@
-# WatchHub · 让荣耀手表收到你自己定义的通知
+# WatchHub · 手机本机通知中枢 → 荣耀手表
 
-> 目标：**定时提醒** + **服务联动**（网站更新 / 番剧更新 / 任意变化），最终变成手表上的一次震动。
-> 荣耀手表（Watch 5 Pro）不开放第三方 App SDK，所以正确解法不是「在手表上写 App」，
-> 而是「**自建服务端 → 手机 App 发系统通知 → 荣耀运动健康镜像到手表**」。
-
-```
-┌──────────────┐   变化检测    ┌──────────────┐   SSE 长连接   ┌──────────────┐  系统通知  ┌──────────┐
-│ 网站 / RSS /  │ ───────────▶ │  WatchHub     │ ────────────▶ │ Android App  │ ─────────▶ │ 荣耀手表  │
-│ 番剧 / 定时器 │   轮询抓取    │  Server       │   实时推送     │ (前台服务)   │  镜像通知  │ Watch 5  │
-└──────────────┘               └──────────────┘                └──────────────┘            └──────────┘
-```
-
-## 仓库结构
+一个 APK，把「定时提醒」和「网站/番剧更新」变成手表上的震动。
+**不需要电脑、不需要服务器、不需要公网 IP。** 全部在手机上跑。
 
 ```
-honor-watch-hub/
-├─ server/                  零第三方依赖的 Python 通知中枢
-│  ├─ hub/sources.py        5 种采集器：rss / json / regex / hash / cron
-│  ├─ hub/store.py          SQLite 去重 + 历史
-│  ├─ hub/broker.py         SSE 广播
-│  ├─ hub/scheduler.py      每源一线程，按 interval 轮询
-│  ├─ hub/server.py         标准库 HTTP + SSE（无 FastAPI/Flask）
-│  └─ tests/                冒烟测试 + cron 单元测试
-├─ android/                 Kotlin 客户端（前台服务 + SSE + 通知桥）
-├─ docs/PROTOCOL.md         手机端 ↔ 服务端的唯一契约
-└─ deploy/                  示例配置 / systemd / Docker
+[手机 App 进程内]
+ 定时器 ──► 采集器(RSS/JSON/正则/指纹/定时) ──► 去重(SQLite) ──► 系统通知
+                                                                    │
+                                                       荣耀运动健康镜像
+                                                                    ▼
+                                                              [荣耀手表]
 ```
 
-## 快速开始
+## 为什么是这个架构
 
-### 1. 起服务端
+荣耀手表（Watch 5 Pro）是 MagicOS/RTOS，**不开放第三方 App SDK**，装不了 APK。
+它只能通过「手机通知镜像」显示内容 —— 这和你微信消息上手表是同一个通道。
 
-```bash
-cd server
-python -m hub.main --port 8787 --data ../data --config ../deploy/sources.yaml
-# 首次启动会自动生成 token 并写入 data/token.txt
+所以手表只是个蓝牙显示器，真正干活的是手机上的这个 App。
+第一版把服务端放在电脑上（Python），但那样要求电脑一直开机、要开端口、要配 token。
+现在把服务端整个搬进 APK：省掉网络中间环节，也省掉所有配置。
+
+## 装什么
+
+```
+dist/WatchHub.apk
 ```
 
-零依赖：只要求 Python 3.9+，不需要 pip install 任何东西。
+安装后：
 
-验证：
+1. 打开 App → 点「启动中枢」
+2. 点「测试通知」，手机通知栏出现通知即 App 侧 OK
+3. **荣耀运动健康 → 设备 → 消息通知 → 勾选 WatchHub**（这一步只能手动做）
+4. 手机设置 → 通知 → WatchHub →「WatchHub 推送」设为**重要/允许打扰**
+5. 手机设置 → 电池 → 应用启动管理 → WatchHub → **手动管理，全开**
+   （App 里有按钮直接跳转）
 
-```bash
-curl http://127.0.0.1:8787/health
-TOKEN=$(cat data/token.txt)
-curl -X POST http://127.0.0.1:8787/api/v1/notify \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"title":"你好","body":"来自 WatchHub"}'
-```
+第 3~5 步是荣耀/华为系统的硬性要求，跳不过去。第 3 步决定了通知能不能上手表。
 
-### 2. 装手机 App
+## 五种数据源
 
-- 用 Android Studio 打开 `android/`，或命令行 `cd android && ./gradlew assembleDebug`
-- 安装后填 **服务器地址**（同局域网用 `http://电脑IP:8787`）和 **token**
-- 点「测试连接」→「开始连接」→「本地测试通知」
-- 手机通知栏出现通知即 App 侧 OK
+内置配置里已经有三条示例，在 App 里点「编辑配置 (JSON)」可以直接改：
 
-### 3. 让通知上手表（关键）
-
-荣耀手表走的是「手机通知镜像」，不是独立 App：
-
-1. 手机蓝牙连好手表，打开 **荣耀运动健康**
-2. **设备 → 消息通知** → 找到 **WatchHub** → 打开
-3. 手机 **设置 → 电池 → 应用启动管理** → WatchHub 设为「手动管理」并全开
-4. 手机 **设置 → 通知 → WatchHub** → 「WatchHub 推送」设为**重要/允许打扰**
-5. 手表端：**设置 → 通知 → 开启**
-
-> 经验：荣耀/华为的镜像对「长文本 + 图片 + 按钮」支持很差。
-> 本项目服务端已把 title 裁到 30 字、body 裁到 120 字，就是为了让手表能完整显示。
-
-## 配置一个「番剧更新」
-
-Bangumi 的网页 RSS（`/rss/subject/xxx`）现在返回 404，官方可用的是 v0 API。
-本项目用 `json` 采集器接它（`deploy/sources.yaml` 里已配好，实测通过）：
-
-```yaml
-bangumi:
-  kind: json
-  url: https://api.bgm.tv/v0/episodes?subject_id=425998&type=0&limit=20
-  list_path: data
-  limit: 20
-  interval: 900
-  priority: high
-  tags: [anime, 番剧]
-  fields:
-    title: name_cn            # 字段映射：通知标题取这一列
-    key: id                   # 去重主键
-    body: airdate
-    url: id
-  # 也可以用模板组合多个字段：
-  # body_format: "{airdate} · 第{ep}话"
-```
-
-把 `subject_id=425998` 换成你追的番（bangumi.tv/subject/<id> 里的数字）。
-
-> **首轮不会刷屏**：任何源第一次检查只「播种」去重表，不推送历史。
-> 想让某个源一启动就推最新一条，加 `notify_on_first_run: true`。
-> `cron` 源不受影响——定时提醒命中了就该响。
-
-重启服务即可。也可以在运行时：
-
-```bash
-curl -X POST http://HOST:8787/api/v1/sources/bangumi/check -H "Authorization: Bearer $TOKEN"
-curl -X POST http://HOST:8787/api/v1/sources/bangumi -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" -d '{"enabled":false}'
-```
-
-## 配置一个「定时提醒」
-
-```yaml
-drink_water:
-  kind: cron
-  times: ["09:30", "11:30", "14:30", "16:30", "20:00"]
-  days: [0, 1, 2, 3, 4]     # 周一至周五；省略=每天
-  title: 喝水
-  body: 起来走两步，喝口水
-  priority: high
-  tags: [health]
-```
-
-`sources.py` 里 cron 的 key 是 `名字+YYYYMMDDHHMM`，所以同一分钟绝不会重复提醒，
-服务重启也不会补发历史提醒。
-
-## 五种采集器
-
-| kind | 用途 | 关键配置 |
+| kind | 用途 | 关键字段 |
 |---|---|---|
-| `rss` | RSS/Atom，最稳 | `url`, `limit` |
-| `json` | 任意 JSON API | `url`, `list_path`, `fields{}` |
-| `regex` | HTML 抓条目 | `url`, `pattern`（命名组 title/body/url/key）|
+| `rss` | RSS / Atom，最稳 | `url`, `limit` |
+| `json` | 任意 JSON API | `url`, `list_path`, `fields{}`, `*_format` |
+| `regex` | 从 HTML 抠条目 | `url`, `pattern`（命名组 title/body/url/key）|
 | `hash` | 整页指纹，变了就报 | `url`, `title`, `body` |
-| `cron` | 定时提醒 | `times[]`, `days[]` |
+| `cron` | 定时提醒（本地算，不联网）| `times[]`, `days[]` |
 
-`hash` 是最万能的兜底：「我不关心它变了什么，只想知道它变了」。
-适合抢票、补货、公告页、论文录用名单这种无结构页面。
+### 番剧更新（Bangumi，实测可用）
 
-## 为什么不直接写手表 App
+```json
+{
+  "name": "bangumi",
+  "kind": "json",
+  "url": "https://api.bgm.tv/v0/episodes?subject_id=425998&type=0&limit=20",
+  "list_path": "data",
+  "limit": 20,
+  "interval": 900,
+  "priority": "high",
+  "tags": ["anime"],
+  "fields": { "title": "name_cn", "key": "id", "body": "airdate", "url": "id" },
+  "body_format": "{airdate} · 第{ep}话"
+}
+```
 
-- 荣耀手表（MagicOS/RTOS）**没有公开的第三方应用 SDK**，也没有类似 Wear OS 的独立 APK 安装通道
-- 官方可自定义的只有**表盘**（表盘开放平台）
-- 所以社区通用做法就是本项目这套：**通知镜像**
+把 `subject_id` 换成你追的番（`bangumi.tv/subject/<id>` 里的数字）。
+注意：Bangumi 网页版 RSS（`/rss/subject/xxx`）已失效，必须用 v0 API。
 
-如果哪天你只想要「表盘上显示服务器状态」，那需要走表盘开发（设计稿 + 上传审核），
-和本项目的代码链路是独立的，可以再单独做。
+### 定时提醒
 
-## 测试
+```json
+{
+  "name": "drink_water",
+  "kind": "cron",
+  "times": ["09:30", "11:30", "14:30", "16:30"],
+  "days": [0, 1, 2, 3, 4],
+  "title": "喝水",
+  "body": "起来走两步，喝口水",
+  "priority": "high"
+}
+```
 
-一键（Python + Android 单测 + 构建 APK）：
+`days`：0=周一 … 6=周日，省略=每天。
+key 是 `名字+年月日时分`，所以同一分钟绝不会重复，重启也不会补发历史。
+
+### 抢票 / 补货 / 公告页
+
+```json
+{
+  "name": "restock",
+  "kind": "hash",
+  "url": "https://shop.example.com/item/123",
+  "interval": 60,
+  "title": "有货了",
+  "body": "商品页变了，快去看",
+  "priority": "high"
+}
+```
+
+`hash` 是最万能的兜底：不关心变了什么，只想知道变了。
+
+## 关键行为
+
+- **首轮不刷屏**：新源第一次检查只写入去重表，不推送历史。
+  需要启动即推最新一条的加 `"notify_on_first_run": true`。`cron` 源例外。
+- **手表长度约束**：标题裁 40 字、正文裁 120 字。荣耀镜像对长文本支持很差。
+- **同源覆盖**：用 `tag = "wh:" + 源名`，连续 10 集更新不会把手表通知栏刷满。
+- **保活**：前台服务每 20 秒 tick 一次，cron 精度 20 秒内。
+  另配开机自启 + 电池白名单跳转。
+
+## 代码结构
+
+```
+android/app/src/main/java/dev/watchhub/app/
+├─ hub/
+│  ├─ Source.kt       源基类 + 工厂 + clip/fmt 工具
+│  ├─ RssSource.kt    RSS/Atom（DOM 解析，关掉 XXE）
+│  ├─ JsonSource.kt   JSON API + 字段映射 + 模板
+│  ├─ RegexSource.kt  HTML 正则抓取
+│  ├─ HashSource.kt   整页 SHA-256 指纹
+│  ├─ CronSource.kt   本地定时（时分 + 星期）
+│  ├─ Http.kt         极简 HTTP（JDK 自带，支持 gzip）
+│  ├─ Store.kt        SQLite：通知 / 去重 / 源状态
+│  ├─ SourceRepo.kt   源配置仓库（JSON 存 SharedPreferences）
+│  └─ Engine.kt       调度引擎：每个源独立倒计时
+├─ HubService.kt      前台服务，20s 心跳
+├─ Notifier.kt        通知桥（HIGH 渠道 + 长度裁剪）
+├─ MainActivity.kt    状态 / 源列表 / 历史 / 日志
+└─ SourcesActivity.kt JSON 配置编辑（保存前校验）
+```
+
+## 构建与测试
 
 ```bat
-test-all.bat
+build.bat
 ```
 
-```bash
-./test-all.sh
-```
+输出 `dist/WatchHub.apk`。自带 JDK 17 + Android SDK + Gradle 在 `.toolchain/`（不入库）。
 
-分项：
-
-```bash
-python server/tests/run_all.py            # 跑下面三个
-python server/tests/test_smoke.py         # 起真服务：health/鉴权/notify/SSE/补发/去重
-python server/tests/test_cron.py          # cron 命中逻辑 + 首轮播种语义
-python server/tests/test_live_pipeline.py # 真实 RSS 站点 → 轮询 → 去重 → SSE 全链路
-
-cd android && ./gradlew :app:testDebugUnitTest
-# SseParserTest            SSE 行协议边界（多行 data / 心跳 / CRLF / 连续事件）
-# NotifTest                模型解析与缺省值
-# SseProtocolFixtureTest   用「真实服务端录下的字节流」做协议一致性守门
-```
-
-协议 fixture 是自动生成的：改了服务端 SSE 格式后重录一次，Kotlin 测试会立刻校验：
-
-```bash
-python server/tests/record_sse_fixture.py
-```
-
-## 项目自带的一键验证
+测试 22 项，全部不依赖真机：
 
 ```
-$ test-all.bat
-========== Python server tests ==========
-ALL 3 SUITES PASSED
-========== Android unit + protocol tests ==========
-BUILD SUCCESSFUL
-========== Android build APK ==========
-BUILD SUCCESSFUL
-ALL PASSED. APK: android\app\build\outputs\apk\debug\app-debug.apk
+SourcesTest (12)       clip / 工厂 / JSON 路径 / 模板 / cron 命中与星期过滤 / 首轮语义
+NotifTest (3)          通知模型解析与缺省值
+HttpSourcesTest (7)    真起本地 HTTP 服务，跑通 RSS/Atom/JSON/Regex/Hash + 404 + 拒绝连接
 ```
 
 ## 已知限制
 
-- SSE 在 Android 上会被 Doze 影响；本项目用前台服务 + 90s 限时 wakelock 缓解，
-  但仍建议把 App 加入电池白名单（App 里点状态文字可跳转）
-- 服务端 token 走明文 HTTP。**只建议在局域网/内网使用**；要暴露公网请套
-  Caddy/Nginx 的 TLS，客户端把地址改成 `https://`
-- 荣耀运动健康对不同 App 的通知镜像策略可能随版本变化，若手表不响，
-  先用「本地测试通知」确认是手机侧还是镜像侧的问题
+- **通知镜像取决于你的 ROM 版本**。如果运动健康的「消息通知」列表里没有 WatchHub，
+  说明该系统只允许白名单应用镜像。此时需要换落地方式（发邮件到手机邮箱、
+  写手机日历等），数据源和定时逻辑可以复用。
+- 荣耀/华为的系统杀后台极其激进，务必手动开电池白名单；否则中枢会被冻结。
+- 明文 HTTP 访问源站（多数 RSS 是 https，没问题）；没做代理支持。
+- `hash` 源对动态页面会误报（广告/时间戳变化），必要时应改用 `regex` 精确抓。
