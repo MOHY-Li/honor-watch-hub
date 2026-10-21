@@ -87,22 +87,18 @@ def main():
     from http.server import ThreadingHTTPServer
 
     app = App(tmp, "live-token", None)
-    app.store.upsert_source("local_feed", {
+    cfg = {
         "kind": "rss",
         "url": f"http://127.0.0.1:{feed_port}/feed.xml",
         "interval": 600,
         "limit": 10,
         "priority": "high",
         "tags": ["anime"],
-    })
-    app.scheduler.register("local_feed", {
-        "kind": "rss",
-        "url": f"http://127.0.0.1:{feed_port}/feed.xml",
-        "interval": 600,
-        "limit": 10,
-        "priority": "high",
-        "tags": ["anime"],
-    })
+        # 测试里希望首轮就产出通知，否则首轮只会「播种」
+        "notify_on_first_run": True,
+    }
+    app.store.upsert_source("local_feed", cfg)
+    app.scheduler.register("local_feed", cfg)
 
     port = free_port()
     srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
@@ -159,6 +155,30 @@ def main():
     check("SSE 补发 2 条", text.count("event: notification") >= 2, str(text.count("event: notification")))
     check("补发内容含第2话", "第2话" in text, text[-120:])
     conn.close()
+
+    print("[4.5] 首轮静默播种：新源第一次只记已见，不推送")
+    seed_cfg = dict(cfg)
+    seed_cfg.pop("notify_on_first_run", None)   # 默认行为：首轮只播种
+    app.store.upsert_source("seed_only", seed_cfg)
+    app.scheduler.register("seed_only", seed_cfg)
+    app.scheduler.trigger("seed_only")
+    time.sleep(2.5)
+    names = [n["source"] for n in app.store.list_notifications(limit=100)]
+    check("播种源未产生通知", "seed_only" not in names, str(names[:5]))
+    # 但它的 key 已进去重表：再 trigger 一次也不应产生
+    app.scheduler.trigger("seed_only")
+    time.sleep(1.5)
+    names2 = [n["source"] for n in app.store.list_notifications(limit=100)]
+    check("播种后重复检查仍静默", "seed_only" not in names2)
+
+    print("[4.6] cron 源首轮不被播种吞掉")
+    now_hm = __import__("datetime").datetime.now().strftime("%H:%M")
+    app.scheduler.register("ping_now", {
+        "kind": "cron", "times": [now_hm], "title": "整点提醒", "priority": "high",
+    })
+    app.scheduler.trigger("ping_now")
+    got = wait(lambda: any(n["source"] == "ping_now" for n in app.store.list_notifications(limit=100)), 8)
+    check("cron 命中当前分钟即推送", bool(got))
 
     print("[5] 源状态可见")
     st = app.scheduler.status()

@@ -46,6 +46,22 @@ def clip(s: Any, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def _fmt(template: str, row: Any) -> str:
+    """把 `{a.b}` 占位符替换成 row 里的值；缺失字段替换成空串。"""
+    def repl(m: re.Match) -> str:
+        path = m.group(1)
+        cur = row
+        for part in path.split("."):
+            if isinstance(cur, dict):
+                cur = cur.get(part)
+            else:
+                return ""
+            if cur is None:
+                return ""
+        return str(cur)
+    return re.sub(r"\{([\w.]+)\}", repl, template)
+
+
 def strip_ns(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].lower()
 
@@ -91,6 +107,16 @@ class Source:
 
     def fetch(self) -> list[Item]:
         raise NotImplementedError
+
+    @property
+    def notify_on_first_run(self) -> bool:
+        """首次运行是否推送已有条目。
+
+        默认 **False**：第一次检查只「播种」去重表，不推送历史。
+        否则一个 20 条的 RSS 会在第一次启动时把手表炸屏。
+        需要「一启动就推最新一条」的源可以设 notify_on_first_run: true。
+        """
+        return bool(self.cfg.get("notify_on_first_run", False))
 
     def check(self) -> list[Item]:
         """返回本次新增的 Item（去重由 store 负责）。"""
@@ -167,6 +193,12 @@ class JsonSource(Source):
             title = g("title")
             key = g("key") or g("url") or title
             body = g("body")
+            # 可选模板：用 {字段名} 组合多个字段，例如
+            #   body_format: "{airdate} · 第{ep}话"
+            if cfg.get("title_format"):
+                title = _fmt(cfg["title_format"], row)
+            if cfg.get("body_format"):
+                body = _fmt(cfg["body_format"], row)
             items.append(Item(
                 key=f"{self.name}:{hashlib.sha1(key.encode()).hexdigest()[:16]}",
                 title=title, body=body, detail=body or title,
@@ -230,6 +262,11 @@ class CronSource(Source):
     key 用 名字+日期+时刻 生成，所以同一分钟内的重复检查会自动去重。
     """
     kind = "cron"
+
+    @property
+    def notify_on_first_run(self) -> bool:
+        # 定时提醒没有「历史」概念：命中了现在就该响，不能被首轮播种吞掉
+        return True
 
     def _matches_now(self, now) -> list[str]:
         times = self.cfg.get("times") or []

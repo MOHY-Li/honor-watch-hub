@@ -71,16 +71,32 @@ curl -X POST http://127.0.0.1:8787/api/v1/notify \
 
 ## 配置一个「番剧更新」
 
+Bangumi 的网页 RSS（`/rss/subject/xxx`）现在返回 404，官方可用的是 v0 API。
+本项目用 `json` 采集器接它（`deploy/sources.yaml` 里已配好，实测通过）：
+
 ```yaml
-# deploy/sources.yaml
 bangumi:
-  kind: rss
-  url: https://api.bgm.tv/rss/subject/425998
-  interval: 600          # 每 10 分钟
-  limit: 10
+  kind: json
+  url: https://api.bgm.tv/v0/episodes?subject_id=425998&type=0&limit=20
+  list_path: data
+  limit: 20
+  interval: 900
   priority: high
-  tags: [anime]
+  tags: [anime, 番剧]
+  fields:
+    title: name_cn            # 字段映射：通知标题取这一列
+    key: id                   # 去重主键
+    body: airdate
+    url: id
+  # 也可以用模板组合多个字段：
+  # body_format: "{airdate} · 第{ep}话"
 ```
+
+把 `subject_id=425998` 换成你追的番（bangumi.tv/subject/<id> 里的数字）。
+
+> **首轮不会刷屏**：任何源第一次检查只「播种」去重表，不推送历史。
+> 想让某个源一启动就推最新一条，加 `notify_on_first_run: true`。
+> `cron` 源不受影响——定时提醒命中了就该响。
 
 重启服务即可。也可以在运行时：
 
@@ -130,9 +146,47 @@ drink_water:
 
 ## 测试
 
+一键（Python + Android 单测 + 构建 APK）：
+
+```bat
+test-all.bat
+```
+
 ```bash
-python server/tests/test_smoke.py    # 起真服务，测 health/鉴权/notify/SSE/补发/去重
-python server/tests/test_cron.py     # cron 命中逻辑
+./test-all.sh
+```
+
+分项：
+
+```bash
+python server/tests/run_all.py            # 跑下面三个
+python server/tests/test_smoke.py         # 起真服务：health/鉴权/notify/SSE/补发/去重
+python server/tests/test_cron.py          # cron 命中逻辑 + 首轮播种语义
+python server/tests/test_live_pipeline.py # 真实 RSS 站点 → 轮询 → 去重 → SSE 全链路
+
+cd android && ./gradlew :app:testDebugUnitTest
+# SseParserTest            SSE 行协议边界（多行 data / 心跳 / CRLF / 连续事件）
+# NotifTest                模型解析与缺省值
+# SseProtocolFixtureTest   用「真实服务端录下的字节流」做协议一致性守门
+```
+
+协议 fixture 是自动生成的：改了服务端 SSE 格式后重录一次，Kotlin 测试会立刻校验：
+
+```bash
+python server/tests/record_sse_fixture.py
+```
+
+## 项目自带的一键验证
+
+```
+$ test-all.bat
+========== Python server tests ==========
+ALL 3 SUITES PASSED
+========== Android unit + protocol tests ==========
+BUILD SUCCESSFUL
+========== Android build APK ==========
+BUILD SUCCESSFUL
+ALL PASSED. APK: android\app\build\outputs\apk\debug\app-debug.apk
 ```
 
 ## 已知限制

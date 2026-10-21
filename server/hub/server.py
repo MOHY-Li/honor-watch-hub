@@ -38,24 +38,40 @@ class App:
         self.scheduler.load()
 
     def _load_yaml_ish(self, path: str) -> None:
-        """极简 sources.yaml 解析：两级缩进 + 可选嵌套块。无 PyYAML 依赖。"""
-        cur = None
-        name = None
-        nest_key = None
+        """极简 sources.yaml 解析：顶格为源名，缩进为键值，支持一层嵌套(fields)。
+
+        只覆盖本项目配置所需的语法，换来实现零 PyYAML 依赖：
+          - `#` 开头为注释，空行忽略
+          - 顶格 `name:` 开始一个源
+          - 缩进 `key: value` 为该源的配置
+          - `key:`（无值）后跟更深缩进 → 一个 dict
+          - 值自动转型：true/false、整数、[a, b] 列表、引号字符串
+        """
+        cur: dict | None = None
+        name: str | None = None
+        nest_key: str | None = None
         nest_indent = 0
-        for raw in open(path, encoding="utf-8"):
-            line = raw.rstrip("\n")
+
+        def flush() -> None:
+            if name and cur is not None:
+                self.store.upsert_source(name, cur)
+
+        for raw in open(path, encoding="utf-8-sig"):
+            line = raw.rstrip("\n").rstrip("\r")
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
+            if line.lstrip().startswith("- "):
+                continue          # 本项目配置不用列表块
             indent = len(line) - len(line.lstrip())
             t = line.strip()
-            if indent == 2 and t.endswith(":"):
-                if name and cur is not None:
-                    self.store.upsert_source(name, cur)
+
+            if indent == 0 and t.endswith(":") and ":" not in t[:-1]:
+                flush()
                 name, cur, nest_key = t[:-1].strip(), {}, None
                 continue
-            if cur is None or indent <= 2 or ":" not in t:
+            if cur is None or ":" not in t:
                 continue
+
             k, v = t.split(":", 1)
             k, v = k.strip(), v.strip()
             if nest_key is not None and indent > nest_indent:
@@ -67,8 +83,7 @@ class App:
                 continue
             nest_key = None
             cur[k] = _coerce(v)
-        if name and cur is not None:
-            self.store.upsert_source(name, cur)
+        flush()
 
     def health(self) -> dict:
         st = self.scheduler.status()

@@ -77,6 +77,15 @@ class Store:
             self._db.commit()
             return int(cur.lastrowid)
 
+    def mark_seen(self, key: str) -> None:
+        """只标记为已见、不产生通知。用于首轮种子，避免历史刷屏。"""
+        if not key:
+            return
+        with self._lock:
+            self._db.execute("INSERT OR REPLACE INTO seen (key, ts) VALUES (?,?)",
+                             (key, time.time()))
+            self._db.commit()
+
     def list_notifications(self, limit: int = 50, before_id: int = 0) -> list[dict]:
         with self._lock:
             if before_id:

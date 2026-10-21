@@ -105,10 +105,18 @@ class Scheduler:
             st["last_ok"] = now_iso()
             st["last_error"] = None
             st["items_seen"] = st.get("items_seen", 0) + len(items)
+
+            # 首次运行：只播种去重表，不推送历史（除非源显式要求）
+            priming = not st.get("seeded", False) and not src.notify_on_first_run
+            pushed = 0
             for item in items:
+                if priming:
+                    self.store.mark_seen(item.key)
+                    continue
                 nid = self.store.add_notification(item.to_notification(name))
                 if nid is None:
                     continue
+                pushed += 1
                 new_count += 1
                 n = self.store.list_notifications(limit=1)[0]
                 self.broker.publish({"event": "notification", "id": nid, "data": n})
@@ -117,6 +125,9 @@ class Scheduler:
                         self.on_new(n, nid)
                     except Exception:
                         traceback.print_exc()
+            if priming:
+                print(f"[{name}] 首次运行：已播种 {len(items)} 条历史，不推送")
+            st["seeded"] = True
         except Exception as e:
             st["last_error"] = f"{type(e).__name__}: {e}"[:300]
             print(f"[{name}] check failed: {st['last_error']}")

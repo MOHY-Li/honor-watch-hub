@@ -21,5 +21,11 @@ d = now.weekday()
 t("days 含今天→命中", len(CronSource("r3", {"times": [hm], "days": [d]}).fetch()) == 1)
 t("days 不含今天→不命中", len(CronSource("r4", {"times": [hm], "days": [(d + 1) % 7]}).fetch()) == 0)
 t("多时刻不重复计", len(CronSource("r5", {"times": [hm, hm]}).fetch()) == 2)
+
+# 首轮播种语义
+from hub.sources import RssSource, HashSource
+t("rss 默认首轮不推历史", RssSource("x", {"url": "u"}).notify_on_first_run is False)
+t("可显式开启首轮推送", RssSource("x", {"url": "u", "notify_on_first_run": True}).notify_on_first_run is True)
+t("cron 首轮就必须可推送（否则启动时漏提醒）", CronSource("c", {"times": [hm]}).notify_on_first_run is True)
 print(f"  {ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)
