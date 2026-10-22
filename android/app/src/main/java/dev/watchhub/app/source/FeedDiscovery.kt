@@ -27,9 +27,10 @@ object FeedDiscovery {
             val href = attrs["href"].orEmpty()
             if (href.isBlank()) return@forEach
             if (!rel.split(Regex("\\s+")).contains("alternate")) return@forEach
+            // 只认 RSS/Atom：RssSource 用 XML DOM 解析，JSON Feed 目前不支持，
+            // 误报成可订阅会在抓取阶段一直失败，不如在发现阶段就跳过。
             val isFeed = type.contains("application/rss+xml") ||
-                type.contains("application/atom+xml") ||
-                type.contains("application/feed+json")
+                type.contains("application/atom+xml")
             if (!isFeed) return@forEach
             out.add(resolveUrl(pageUrl, href))
         }

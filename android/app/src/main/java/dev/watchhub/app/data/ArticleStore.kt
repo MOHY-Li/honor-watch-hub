@@ -24,7 +24,8 @@ class ArticleStore(private val db: Db) {
                 put("key", key.take(256))
                 put("title", item.title.take(300))
                 put("url", item.url.take(2000))
-                put("summary", item.body.take(500))
+                // item.body 是为手表裁到 120 字的版本；文章摘要用 detail（完整正文）
+                put("summary", item.detail.ifBlank { item.body }.take(500))
                 put("published_at", item.publishedAt)
                 put("fetched_at", fetchedAt)
                 put("read_at", 0)
