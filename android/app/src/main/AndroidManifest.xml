@@ -10,10 +10,22 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- 自更新必需：Android 8+ 装 APK 要这个权限，没有会直接 ActivityNotFound -->
-    
+    <!-- 任务到期用精确闹钟；未授权时降级为非精确并在体检页告警 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 日历兜底：高优先级任务写手机日历，手表原生同步日历提醒，不依赖镜像白名单 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
+    <!-- Android 11+ 包可见性：体检页要枚举桌面 App，找「荣耀运动健康」 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
+        android:name=".App"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
@@ -22,7 +34,7 @@
         android:theme="@style/Theme.WatchHub">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
@@ -32,15 +44,40 @@
         </activity>
 
         <activity
-            android:name=".SourcesActivity"
+            android:name=".ui.TaskEditActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:label="源配置" />
+            android:label="任务" />
+
+        <activity
+            android:name=".ui.SourceEditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:label="数据源" />
+
+        <activity
+            android:name=".ui.HealthActivity"
+            android:exported="false"
+            android:label="链路体检" />
 
         <service
-            android:name=".HubService"
+            android:name=".service.HubService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".service.AlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -51,15 +88,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true"
-            android:enabled="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

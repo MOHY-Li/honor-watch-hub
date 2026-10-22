@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand">#FF3D6BE5</color>
+    <color name="health_ok">#2E9E4F</color>
+    <color name="health_warn">#E08A00</color>
+    <color name="health_fail">#D93636</color>
+    <color name="health_info">#3B7DD8</color>
+    <color name="priority_high">#D93636</color>
+    <color name="ink_primary">#4F6BFF</color>
 </resources>

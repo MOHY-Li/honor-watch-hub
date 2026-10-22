@@ -9,48 +9,35 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import dev.watchhub.app.BuildConfig
-import dev.watchhub.app.LogBus
-import dev.watchhub.app.hub.Http
+import dev.watchhub.app.core.LogBus
+import dev.watchhub.app.net.Http
 import java.io.File
 import java.security.MessageDigest
 
 /**
  * 自更新。
  *
- * 为什么不能「静默更新」：Android 从 7.0 起禁止普通应用自己装 APK，
- * 必须交给系统安装器（用户点一下「安装」）。所以流程是：
- *   检查清单 -> 下载到私有目录 -> 校验 SHA-256 -> FileProvider 暴露 -> 拉起系统安装器
+ * Android 不允许应用静默装 APK，所以流程是：
+ *   检查清单 → 系统 DownloadManager 下载 → 校验 SHA-256 + 大小 → FileProvider → 系统安装器
  *
- * 校验 SHA-256 很重要：更新包经过网络，必须确认没被改过，
- * 否则等于给攻击者开了一个远程代码执行的口子。
+ * 校验 SHA-256 不是可选项：更新包走公网，不校验等于允许别人替换 APK。
  */
 object Updater {
 
-    private const val TAG = "WatchHubUpdater"
     private const val APK_NAME = "watchhub-update.apk"
 
     /**
-     * 清单的候选地址，按顺序尝试。
-     *
-     * 为什么要多源：raw.githubusercontent.com 在国内经常被墙或不稳定，
-     * 单一地址会导致「检查更新」直接失败。jsDelivr 走国内 CDN，
-     * GitHub API 又是另一条线路，三个都挂了才算真失败。
+     * 清单候选地址，按顺序尝试。raw.githubusercontent.com 在国内经常不通，
+     * jsDelivr 走国内 CDN，GitHub API 是第三条独立线路。
      */
     val MANIFEST_URLS: List<String> = listOf(
-        // 1. jsDelivr：国内访问通常最快
         "https://cdn.jsdelivr.net/gh/MOHY-Li/honor-watch-hub@master/dist/latest.json",
-        // 2. raw：官方源，海外/代理环境最稳
         "https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json",
-        // 3. GitHub API：另一条独立线路（返回 Release 信息，需要转换）
         "https://api.github.com/repos/MOHY-Li/honor-watch-hub/releases/latest",
     )
-
-    /** 兼容旧调用点。 */
-    val DEFAULT_MANIFEST_URL: String get() = MANIFEST_URLS.first()
 
     /**
      * 检查新版本。网络操作，必须在后台线程调用。
@@ -58,53 +45,37 @@ object Updater {
      * @param manifestUrl 指定单一地址（测试用）；传空则依次尝试 [MANIFEST_URLS]
      */
     fun check(
-        manifestUrl: String,
-        currentCode: Long,
-        // 可注入，方便单测；生产调用用默认值
+        manifestUrl: String = "",
+        currentCode: Long = currentVersionCode(),
         sdkInt: Int = Build.VERSION.SDK_INT,
     ): UpdateCheck {
         val candidates = if (manifestUrl.isBlank()) MANIFEST_URLS else listOf(manifestUrl)
         val errors = mutableListOf<String>()
         for (url in candidates) {
             try {
-                val json = Http.getString(url, mapOf("Accept" to "application/vnd.github+json"))
-                val m = parseAny(json)
-                if (m == null) {
+                val json = Http.execute(
+                    "GET", url, mapOf("Accept" to "application/vnd.github+json"),
+                ).text()
+                val m = parseAny(json) ?: run {
                     errors.add("$url: 格式不对")
-                    continue
-                }
+                    null
+                } ?: continue
                 return when {
                     m.versionCode <= currentCode -> UpdateCheck.UpToDate(currentCode)
                     m.minSdk > sdkInt -> UpdateCheck.Unsupported(m)
                     else -> UpdateCheck.Available(m)
                 }
             } catch (t: Throwable) {
-                Log.w(TAG, "check failed: $url", t)
                 errors.add("${t.javaClass.simpleName}: ${t.message}")
             }
         }
         return UpdateCheck.Failed("所有清单地址都失败：${errors.joinToString(" | ").take(300)}")
     }
 
-    /**
-     * 解析更新信息，兼容两种格式：
-     *  - 我们自己的 latest.json
-     *  - GitHub Releases API 的 /releases/latest 响应
-     */
-    fun parseAny(json: String): UpdateManifest? {
-        UpdateManifest.parse(json)?.let { return it }
-        return parseGitHubRelease(json)
-    }
+    /** 兼容两种格式：自己的 latest.json 与 GitHub Releases API 响应。 */
+    fun parseAny(json: String): UpdateManifest? =
+        UpdateManifest.parse(json) ?: parseGitHubRelease(json)
 
-    /**
-     * GitHub Releases API 响应 → UpdateManifest。
-     *
-     * 字段对应：
-     *   tag_name     v1.2.0         -> versionName
-     *   assets[].name WatchHub.apk  -> apkUrl / sizeBytes
-     *   body                        -> changelog
-     * 注意：这里拿不到真正的 versionCode，用 tag 里的 x.y.z 换算。
-     */
     fun parseGitHubRelease(json: String): UpdateManifest? = try {
         val o = org.json.JSONObject(json)
         val tag = o.optString("tag_name").trim()
@@ -116,35 +87,30 @@ object Updater {
             if (assets != null) {
                 for (i in 0 until assets.length()) {
                     val a = assets.optJSONObject(i) ?: continue
-                    val name = a.optString("name")
-                    if (name.endsWith(".apk", ignoreCase = true)) {
+                    if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
                         apkUrl = a.optString("browser_download_url")
                         size = a.optLong("size", 0)
-                        // GitHub 从 2024 起在 asset 上提供 digest: sha256:xxx
                         sha = a.optString("digest").removePrefix("sha256:").lowercase()
                         break
                     }
                 }
             }
-            if (apkUrl.isBlank()) null else {
-                UpdateManifest(
-                    versionCode = versionCodeOf(tag),
-                    versionName = tag.removePrefix("v"),
-                    apkUrl = apkUrl,
-                    // 没有 digest 时留空，由 verifyFile 只校验大小（GitHub 走 HTTPS）
-                    sha256 = sha,
-                    sizeBytes = size,
-                    changelog = o.optString("body", "").take(500),
-                    minSdk = 24,
-                    publishedAt = o.optString("published_at", ""),
-                )
-            }
+            if (apkUrl.isBlank()) null else UpdateManifest(
+                versionCode = versionCodeOf(tag),
+                versionName = tag.removePrefix("v"),
+                apkUrl = apkUrl,
+                sha256 = sha,
+                sizeBytes = size,
+                changelog = o.optString("body", "").take(500),
+                minSdk = 24,
+                publishedAt = o.optString("published_at", ""),
+            )
         }
     } catch (_: Throwable) {
         null
     }
 
-    /** `v1.2.3` -> 10203（主*10000 + 次*100 + 修） */
+    /** `v2.0.0` → 20000（主*10000 + 次*100 + 修）。 */
     fun versionCodeOf(tag: String): Long {
         val nums = tag.removePrefix("v").split(".", "-", "+")
             .mapNotNull { it.takeWhile { c -> c.isDigit() }.toIntOrNull() }
@@ -155,14 +121,10 @@ object Updater {
         return major * 10_000L + minor * 100L + patch
     }
 
-    /** 已下载的 APK 位置（私有外部目录，不需要存储权限）。 */
     fun apkFile(ctx: Context): File =
         File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: ctx.filesDir, APK_NAME)
 
-    /**
-     * 用系统 DownloadManager 下载。
-     * 用它而不是自己写 HTTP：支持断点续传、系统级重试，且不占我们的线程。
-     */
+    /** 用系统 DownloadManager 下载（断点续传、系统级重试，不占我们的线程）。 */
     fun download(ctx: Context, m: UpdateManifest, onDone: (Boolean, String) -> Unit): Long {
         val target = apkFile(ctx)
         if (target.exists()) target.delete()
@@ -180,9 +142,9 @@ object Updater {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != id) return
-                c.unregisterReceiver(this)
-                val res = verifyFile(ctx, m)
-                onDone(res.first, res.second)
+                runCatching { c.unregisterReceiver(this) }
+                val result = verifyFile(ctx, m)
+                onDone(result.first, result.second)
             }
         }
         ContextCompat.registerReceiver(
@@ -199,9 +161,8 @@ object Updater {
         if (m.sizeBytes > 0 && f.length() != m.sizeBytes) {
             return false to "大小不符（期望 ${m.sizeBytes}，实际 ${f.length()}）"
         }
-        // GitHub API 那条线路可能拿不到 digest，此时只校验大小
         if (m.sha256.isBlank()) {
-            return true to "校验通过（来源为 GitHub Releases，仅校验大小）"
+            return true to "校验通过（GitHub Releases 线路仅校验大小）"
         }
         val actual = sha256(f)
         return if (actual.equals(m.sha256, ignoreCase = true)) {
@@ -225,14 +186,6 @@ object Updater {
         return md.digest().joinToString("") { "%02x".format(it) }
     }
 
-    /**
-     * 拉起非统安装器。
-     *
-     * 荣耀/HarmonyOS 比 原生 Android 更严格，常见失败原因：
-     *   1. Manifest 没报 REQUEST_INSTALL_PACKAGES -> 直接 ActivityNotFound
-     *   2. 用户没授权「安装未知应用」 -> 安装器被拦截
-     *   3. FileProvider grant 不完整 -> 安装器读不到文件
-     */
     sealed class InstallResult {
         object Started : InstallResult()
         data class NeedPermission(val why: String) : InstallResult()
@@ -242,11 +195,9 @@ object Updater {
     fun install(ctx: Context): InstallResult {
         val f = apkFile(ctx)
         if (!f.exists()) return InstallResult.Failed("APK 不存在，可能被清理了")
-        if (f.length() < 100000) return InstallResult.Failed("APK 不完整：" + f.length() + " 字节")
+        if (f.length() < 100_000) return InstallResult.Failed("APK 不完整：${f.length()} 字节")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !ctx.packageManager.canRequestPackageInstalls()
-        ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ctx.packageManager.canRequestPackageInstalls()) {
             return try {
                 ctx.startActivity(
                     Intent(
@@ -255,23 +206,23 @@ object Updater {
                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
                 InstallResult.NeedPermission("请允许 WatchHub 安装应用，然后返回重试")
-            } catch (t: Throwable) {
-                InstallResult.Failed("打不开授权页，请手动到 设置-应用-特殊访问权限 > 安装未知应用")
+            } catch (_: Throwable) {
+                InstallResult.Failed("打不开授权页，请手动到 设置 → 应用 → 特殊权限 → 安装未知应用")
             }
         }
 
         return try {
-            val uri: Uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".updates", f)
+            val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".updates", f)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             ctx.startActivity(intent)
             LogBus.post("已拉起系统安装器")
             InstallResult.Started
         } catch (t: Throwable) {
-            InstallResult.Failed("拉起安装器失败: " + t.javaClass.simpleName + ": " + t.message)
+            InstallResult.Failed("拉起安装器失败: ${t.javaClass.simpleName}: ${t.message}")
         }
     }
 

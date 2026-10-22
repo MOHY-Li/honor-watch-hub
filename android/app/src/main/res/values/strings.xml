@@ -1,8 +1,132 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WatchHub</string>
-    <string name="channel_name">WatchHub 推送</string>
-    <string name="channel_desc">网站/番剧更新与定时提醒，镜像到手表</string>
-    <string name="service_channel_name">WatchHub 连接</string>
-    <string name="service_channel_desc">保持与服务端的长连接</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_tasks">任务</string>
+    <string name="nav_sources">源</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 通用 -->
+    <string name="ok">确定</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="close">关闭</string>
+    <string name="refresh">重新检测</string>
+    <string name="add">新增</string>
+    <string name="loading">加载中…</string>
+    <string name="empty_list">暂无内容</string>
+
+    <!-- 首页 -->
+    <string name="home_hub_title">中枢状态</string>
+    <string name="home_hub_running">中枢运行中，任务到期会通过通知镜像到手表</string>
+    <string name="home_hub_stopped">中枢已停止，任务不会触发提醒</string>
+    <string name="home_progress_title">今日完成进度</string>
+    <string name="home_progress_none">今天还没有任务</string>
+    <string name="home_next_title">下一次提醒</string>
+    <string name="home_next_none">暂时没有待触发的提醒</string>
+    <string name="home_recent_title">最近推送</string>
+    <string name="home_recent_none">还没有推送记录</string>
+    <string name="home_health_title">链路体检摘要</string>
+    <string name="home_sources_title">数据源健康</string>
+    <string name="home_sources_value">%1$d / %2$d 个源正常</string>
+    <string name="home_health_tap">点击查看体检详情</string>
+
+    <!-- 任务 -->
+    <string name="tasks_new">新建提醒</string>
+    <string name="tasks_reminder_header">提醒管理</string>
+    <string name="tasks_reminder_empty">还没有提醒，点上方「新建提醒」创建</string>
+    <string name="task_done">完成</string>
+    <string name="task_skip">跳过</string>
+    <string name="task_snooze">稍后 10 分钟</string>
+    <string name="task_enabled">启用</string>
+    <string name="task_delete_confirm">删除提醒「%1$s」？</string>
+    <string name="task_delete_confirm_desc">该提醒之后不会再生成任务，历史任务保留。</string>
+
+    <!-- 任务编辑 -->
+    <string name="task_edit_new">新建提醒</string>
+    <string name="task_edit_edit">编辑提醒</string>
+    <string name="task_edit_name">名称（唯一）</string>
+    <string name="task_edit_title">通知标题</string>
+    <string name="task_edit_body">通知正文</string>
+    <string name="task_edit_times">时间（逗号分隔，如 09:00, 18:30）</string>
+    <string name="task_edit_days">星期（都不选 = 每天）</string>
+    <string name="task_edit_priority">优先级</string>
+    <string name="task_edit_enabled">启用</string>
+    <string name="task_edit_calendar">同步到手机日历（兜底通道）</string>
+    <string name="task_edit_name_required">名称不能为空</string>
+    <string name="task_edit_title_required">通知标题不能为空</string>
+    <string name="task_edit_time_required">至少填写一个合法时间（HH:mm）</string>
+    <string name="task_edit_delete_confirm">删除提醒「%1$s」？</string>
+    <string name="priority_high">高</string>
+    <string name="priority_normal">普通</string>
+    <string name="priority_low">低</string>
+    <string name="day_mon">一</string>
+    <string name="day_tue">二</string>
+    <string name="day_wed">三</string>
+    <string name="day_thu">四</string>
+    <string name="day_fri">五</string>
+    <string name="day_sat">六</string>
+    <string name="day_sun">日</string>
+
+    <!-- 源 -->
+    <string name="sources_new">新增数据源</string>
+    <string name="sources_edit_all">编辑全部 JSON</string>
+    <string name="sources_empty">还没有数据源。点「新增数据源」添加 RSS / JSON / 正则 / 指纹源。</string>
+    <string name="source_check_now">立即检查</string>
+    <string name="source_checking">正在检查「%1$s」…</string>
+    <string name="source_check_result">%1$s：%2$d 条新事件</string>
+    <string name="source_edit">编辑</string>
+    <string name="source_delete_confirm">删除数据源「%1$s」？</string>
+    <string name="source_kind_rss">RSS</string>
+    <string name="source_kind_json">JSON</string>
+    <string name="source_kind_regex">正则</string>
+    <string name="source_kind_hash">指纹（页面变化）</string>
+    <string name="source_edit_new">新增数据源</string>
+    <string name="source_edit_edit">编辑数据源</string>
+    <string name="source_edit_json_hint">数据源 JSON</string>
+    <string name="source_edit_name_hint">源名称（name 字段）</string>
+    <string name="source_edit_invalid_json">JSON 不合法：%1$s</string>
+    <string name="source_edit_name_missing">JSON 里必须有非空的 name 字段</string>
+    <string name="source_edit_name_duplicate">源名称「%1$s」已存在</string>
+
+    <!-- 设置 -->
+    <string name="settings_start_on_boot">开机自启</string>
+    <string name="settings_start_on_boot_desc">开机后自动启动中枢服务</string>
+    <string name="settings_calendar">日历兜底</string>
+    <string name="settings_calendar_desc">高优先级任务同时写入手机日历，手表可原生同步日历提醒</string>
+    <string name="settings_mirror">已确认手表镜像</string>
+    <string name="settings_mirror_desc">运动健康 → 设备 → 消息通知 → 勾选 WatchHub</string>
+    <string name="settings_health">链路体检</string>
+    <string name="settings_health_desc">检查权限、渠道、闹钟、服务、数据源</string>
+    <string name="settings_logs">运行日志</string>
+    <string name="settings_logs_desc">查看最近的运行日志</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_update">检查更新</string>
+    <string name="settings_test">发送测试通知</string>
+    <string name="settings_test_desc">验证手机侧通知链路是否正常</string>
+    <string name="update_checking">正在检查更新…</string>
+    <string name="update_up_to_date">已是最新版本</string>
+    <string name="update_failed">检查失败：%1$s</string>
+    <string name="update_available_title">发现新版本 %1$s</string>
+    <string name="update_download">下载并安装</string>
+    <string name="update_started">开始下载更新…</string>
+    <string name="update_unsupported">新版本要求更高的系统版本</string>
+    <string name="logs_clear">清空日志</string>
+    <string name="logs_empty">暂无日志</string>
+    <string name="calendar_denied">没有日历权限，日历兜底未开启</string>
+    <string name="notification_denied">没有通知权限，提醒无法送达</string>
+    <string name="test_sent">测试通知已发送</string>
+    <string name="test_failed">测试通知发送失败（检查通知权限）</string>
+
+    <!-- 体检 -->
+    <string name="health_title">链路体检</string>
+    <string name="health_need_permission">需要授权后重试</string>
+
+    <!-- 提醒详情 -->
+    <string name="alert_detail_title">提醒详情</string>
+    <string name="alert_open_link">打开链接</string>
 </resources>
