@@ -92,6 +92,45 @@ class UpdaterTest {
     }
 
     @Test
+    fun decide_ignoresStaleFirstSource() {
+        // 模拟 jsDelivr 返回旧清单（1.2.2）+ raw 返回新清单（2.0.1）
+        val stale = UpdateManifest(
+            versionCode = 10202, versionName = "1.2.2", apkUrl = "https://x/old.apk",
+            sha256 = "", sizeBytes = 1, changelog = "", minSdk = 24, publishedAt = "",
+        )
+        val fresh = UpdateManifest(
+            versionCode = 20001, versionName = "2.0.1", apkUrl = "https://x/new.apk",
+            sha256 = "", sizeBytes = 1, changelog = "", minSdk = 24, publishedAt = "",
+        )
+        val result = Updater.decide(currentCode = 10204, sdkInt = 34, manifests = listOf(stale, fresh))
+        assertTrue(result is UpdateCheck.Available)
+        assertEquals(20001L, (result as UpdateCheck.Available).manifest.versionCode)
+    }
+
+    @Test
+    fun decide_upToDateWhenAllSourcesOld() {
+        val old = UpdateManifest(
+            versionCode = 10202, versionName = "1.2.2", apkUrl = "https://x/old.apk",
+            sha256 = "", sizeBytes = 1, changelog = "", minSdk = 24, publishedAt = "",
+        )
+        assertTrue(Updater.decide(10204, 34, listOf(old)) is UpdateCheck.UpToDate)
+    }
+
+    @Test
+    fun decide_unsupportedWhenMinSdkTooHigh() {
+        val m = UpdateManifest(
+            versionCode = 30000, versionName = "3.0.0", apkUrl = "https://x/a.apk",
+            sha256 = "", sizeBytes = 1, changelog = "", minSdk = 99, publishedAt = "",
+        )
+        assertTrue(Updater.decide(20001, 34, listOf(m)) is UpdateCheck.Unsupported)
+    }
+
+    @Test
+    fun decide_emptyGivesFailed() {
+        assertTrue(Updater.decide(20001, 34, emptyList()) is UpdateCheck.Failed)
+    }
+
+    @Test
     fun sha256_knownVector() {
         val f = File.createTempFile("watchhub", ".bin")
         try {

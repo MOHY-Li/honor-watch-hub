@@ -42,6 +42,10 @@ object Updater {
     /**
      * 检查新版本。网络操作，必须在后台线程调用。
      *
+     * 多线路必须「取最新的那份」，不能遇到第一条能解析的清单就返回：
+     * jsDelivr 的 `@master` 会缓存旧文件（实测发布后仍返回上一版的清单），
+     * 如果短路返回，用户点检查更新会误报「已是最新」。
+     *
      * @param manifestUrl 指定单一地址（测试用）；传空则依次尝试 [MANIFEST_URLS]
      */
     fun check(
@@ -51,25 +55,41 @@ object Updater {
     ): UpdateCheck {
         val candidates = if (manifestUrl.isBlank()) MANIFEST_URLS else listOf(manifestUrl)
         val errors = mutableListOf<String>()
+        val seen = mutableListOf<UpdateManifest>()
+        var parsedAny = false
         for (url in candidates) {
             try {
                 val json = Http.execute(
                     "GET", url, mapOf("Accept" to "application/vnd.github+json"),
                 ).text()
-                val m = parseAny(json) ?: run {
+                val m = parseAny(json)
+                if (m == null) {
                     errors.add("$url: 格式不对")
-                    null
-                } ?: continue
-                return when {
-                    m.versionCode <= currentCode -> UpdateCheck.UpToDate(currentCode)
-                    m.minSdk > sdkInt -> UpdateCheck.Unsupported(m)
-                    else -> UpdateCheck.Available(m)
+                    continue
                 }
+                parsedAny = true
+                seen.add(m)
+                // 已经有比当前新的版本就没必要再问下一条线路了
+                if (m.versionCode > currentCode) return decide(currentCode, sdkInt, seen)
             } catch (t: Throwable) {
                 errors.add("${t.javaClass.simpleName}: ${t.message}")
             }
         }
-        return UpdateCheck.Failed("所有清单地址都失败：${errors.joinToString(" | ").take(300)}")
+        if (!parsedAny) {
+            return UpdateCheck.Failed("所有清单地址都失败：${errors.joinToString(" | ").take(300)}")
+        }
+        return decide(currentCode, sdkInt, seen)
+    }
+
+    /** 在多份清单里挑版本最高的那份再判断。抽成纯函数方便单测。 */
+    fun decide(currentCode: Long, sdkInt: Int, manifests: List<UpdateManifest>): UpdateCheck {
+        val best = manifests.maxByOrNull { it.versionCode }
+            ?: return UpdateCheck.Failed("没有可用的清单")
+        return when {
+            best.versionCode <= currentCode -> UpdateCheck.UpToDate(currentCode)
+            best.minSdk > sdkInt -> UpdateCheck.Unsupported(best)
+            else -> UpdateCheck.Available(best)
+        }
     }
 
     /** 兼容两种格式：自己的 latest.json 与 GitHub Releases API 响应。 */
