@@ -19,7 +19,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * 主界面：底部导航 + 4 个 Fragment。
+ * 主界面：底部导航 + 5 个 Fragment。
  *
  * 通知点击进来时会带 [EXTRA_ALERT_ID]，这里负责把那条提醒的详情弹出来。
  */
@@ -75,13 +75,32 @@ class MainActivity : AppCompatActivity() {
                 show(existing)
             }
         }.commit()
+        updateSubscriptionsBadge()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateSubscriptionsBadge()
     }
 
     private fun newFragmentFor(tabId: Int): Fragment = when (tabId) {
         R.id.nav_tasks -> TasksFragment()
         R.id.nav_sources -> SourcesFragment()
+        R.id.nav_subscriptions -> SubscriptionsFragment()
         R.id.nav_settings -> SettingsFragment()
         else -> HomeFragment()
+    }
+
+    /** 订阅 tab 的未读角标。Fragment 读完文章也会回调这里刷新。 */
+    fun updateSubscriptionsBadge() {
+        if (isFinishing || isDestroyed) return
+        runCatching {
+            val count = HubUi.unreadArticleCount(this)
+            val badge = binding.bottomNav.getOrCreateBadge(R.id.nav_subscriptions)
+            badge.isVisible = count > 0
+            badge.number = count
+            badge.maxCharacterCount = 99
+        }
     }
 
     private fun handleIntentAlert(intent: Intent?) {

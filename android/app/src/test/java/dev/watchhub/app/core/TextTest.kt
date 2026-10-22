@@ -40,4 +40,19 @@ class TextTest {
     fun key_removesWhitespace() {
         assertEquals("a-b-c", Text.key("a b  c"))
     }
+
+    @Test
+    fun slug_fromUrl() {
+        assertEquals("example-com-blog-feed-xml", Text.slug("https://example.com/blog/feed.xml"))
+        assertEquals("example-com", Text.slug("https://Example.com/"))
+        assertEquals("feed", Text.slug(""))
+        assertEquals("feed", Text.slug("///"))
+    }
+
+    @Test
+    fun slug_respectsMaxLength() {
+        val s = Text.slug("https://example.com/" + "a".repeat(100), max = 10)
+        assertEquals(10, s.length)
+        assertTrue(!s.endsWith("-"))
+    }
 }

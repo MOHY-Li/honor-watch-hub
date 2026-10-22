@@ -129,4 +129,36 @@
     <!-- 提醒详情 -->
     <string name="alert_detail_title">提醒详情</string>
     <string name="alert_open_link">打开链接</string>
+
+    <!-- 订阅 -->
+    <string name="nav_subscriptions">订阅</string>
+    <string name="subs_add">添加订阅</string>
+    <string name="subs_title">我的订阅</string>
+    <string name="subs_guide">粘贴一个网站或 RSS 地址开始订阅</string>
+    <string name="subs_add_hint">网页地址或 RSS/Atom feed 直链</string>
+    <string name="subs_url_required">请输入地址</string>
+    <string name="subs_added">已订阅 %1$s</string>
+    <string name="subs_add_failed">订阅失败：%1$s</string>
+    <string name="subs_unread">%1$d 未读</string>
+    <string name="subs_pause">暂停</string>
+    <string name="subs_resume">恢复</string>
+    <string name="subs_delete">取消订阅</string>
+    <string name="subs_delete_confirm">取消订阅「%1$s」？</string>
+    <string name="subs_delete_confirm_desc">该源的文章和已读记录会一起删除，之后不再抓取。</string>
+    <string name="subs_mark_all">全部已读</string>
+    <string name="subs_mark_all_done">已将 %1$d 条标记为已读</string>
+    <string name="subs_filter_all">全部</string>
+    <string name="subs_unread_only">只看未读</string>
+    <string name="subs_articles_empty">还没有文章，点右上角刷新或等下一轮抓取</string>
+    <string name="subs_no_summary">（没有摘要）</string>
+    <string name="subs_open_original">打开原文</string>
+    <string name="subs_load_failed">读取订阅失败：%1$s</string>
+    <string name="subs_load_failed_title">加载失败</string>
+    <string name="subs_add_failed_title">订阅失败</string>
+    <string name="subs_open_link_failed">打不开链接</string>
+    <string name="subs_operation_failed">操作失败：%1$s</string>
+    <string name="subs_delete_failed">删除失败：%1$s</string>
+    <string name="subs_unknown_error">未知错误</string>
+    <string name="subs_refresh">刷新订阅</string>
+    <string name="subs_refreshed">已刷新订阅，新增 %1$d 条</string>
 </resources>

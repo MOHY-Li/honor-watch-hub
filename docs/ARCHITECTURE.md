@@ -28,7 +28,7 @@ health/      链路体检（纯规则 + Android 探针）
 delivery/    Notifier（唯一通知出口）、Deliverer（outbox 派发）、CalendarSync
 engine/      Poller（源轮询）、ReminderEngine（任务生成/到期/补偿）、Scheduler（闹钟）、Migrator
 source/      rss / json / regex / hash 四种采集器
-store/       SQLite：alerts / seen / sources / source_state / reminders / tasks / settings
+store/       SQLite：alerts / seen / sources / source_state / reminders / tasks / articles / settings
 net/         极简 HTTP（GET/POST、headers、gzip、大小上限）
 core/        纯 Kotlin：模型、时间、重复规则、文本裁剪、日志
 ```
@@ -48,6 +48,9 @@ Alert     一次送达：key + title + body + deliveryState(PENDING/DELIVERED/FA
 ```
 
 - **Feed 事件**（RSS/JSON/正则/指纹）跳过 Task 层，直接产生 Alert：它们没有「完成」语义。
+- **Article** 是独立的阅读记录（v3 新增 `articles` 表）：同一个 feed 条目同时写 Alert 和 Article。
+  Alert 负责「送到手表」，Article 负责「手机上回看 + 已读」。两者生命周期不同，不要合并。
+  `UNIQUE(source, key)` 保证幂等。
 - `alerts` 同时是 outbox：`state=PENDING` 就是待补发。
 - `tasks` 有 `UNIQUE(reminder_id, due_at)`，materialize 幂等。
 

@@ -114,6 +114,20 @@
 **首轮不刷屏**：新源第一次检查只写入去重表，不推送历史。需要启动即推最新一条的加
 `"notify_on_first_run": true`。
 
+## RSS 订阅
+
+「订阅」页把 RSS 变成了真正的阅读入口，而不只是抓取配置：
+
+- **添加订阅**：填网站地址或 feed 直链。填网站时自动读页面的
+  `<link rel="alternate" type="application/rss+xml">` 发现 feed；发现不到会提示你换成直链。
+- **文章列表**：按发布时间倒序，可按订阅源筛选、只看未读；点开看摘要，再点「打开原文」跳浏览器。
+- **已读状态**：点开自动标已读，也可以「全部已读」；未读数会显示在底部导航的角标上。
+- **暂停 / 取消订阅**：暂停只是停止抓取和推送，文章保留；取消会删掉这个源。
+
+同一个 feed 条目会同时产生两种记录：一条**通知**（裁剪到 40/120 字、发到手表、参与去重）
+和一条**文章**（完整摘要、带已读状态、供回看）。两者互不影响——通知发失败了文章还在，
+文章已读了也不会改变历史通知记录。
+
 ## 可靠性契约
 
 代码里不是「尽量」，是硬约束（见 [AGENTS.md](AGENTS.md)）：
@@ -170,7 +184,7 @@ android/app/src/main/java/dev/watchhub/app/
 ├─ service/         HubService / AlarmReceiver / BootReceiver / WatchdogWorker
 ├─ health/          链路体检
 ├─ update/          自更新
-├─ ui/              MainActivity + 4 个 Fragment + 编辑页；HubUi 是唯一门面
+├─ ui/              MainActivity + 5 个 Fragment + 编辑页；HubUi 是唯一门面
 ├─ App.kt / Container.kt
 ```
 

@@ -6,6 +6,7 @@ import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.AlertKind
 import dev.watchhub.app.core.model.FeedItem
 import dev.watchhub.app.data.AlertStore
+import dev.watchhub.app.data.ArticleStore
 import dev.watchhub.app.data.SeenStore
 import dev.watchhub.app.data.SourceStore
 import dev.watchhub.app.data.SourceState
@@ -22,6 +23,7 @@ import dev.watchhub.app.source.SourceFactory
 class Poller(
     private val sources: SourceStore,
     private val alerts: AlertStore,
+    private val articles: ArticleStore,
     private val seen: SeenStore,
     private val clock: Clock,
 ) {
@@ -68,6 +70,8 @@ class Poller(
         return try {
             val source = SourceFactory.create(def)
             val items = source.fetch()
+            // 不管推不推送，都进文章库供订阅页回看（唯一键保证幂等）
+            items.forEach { articles.insertIfNew(it, now) }
             val priming = !state.seeded && !def.notifyOnFirstRun
             var produced = 0
             if (priming) {

@@ -39,4 +39,17 @@ object Text {
     /** 通知 key 的安全化：去掉空白和可能破坏日志的字符。 */
     fun key(s: String?): String =
         (s ?: "").replace(Regex("\\s+"), "-").take(256)
+
+    /**
+     * 由 URL 生成可读、可做唯一键的短名字。
+     * 例：`https://example.com/blog/feed.xml` → `example-com-blog-feed-xml`
+     */
+    fun slug(s: String?, max: Int = 32): String {
+        val cleaned = (s ?: "").lowercase()
+            .replace(Regex("^[a-z]+://"), "")
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+        if (cleaned.isEmpty()) return "feed"
+        return if (cleaned.length <= max) cleaned else cleaned.take(max).trimEnd('-')
+    }
 }

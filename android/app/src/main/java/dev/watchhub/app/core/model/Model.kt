@@ -31,6 +31,8 @@ data class FeedItem(
     val url: String = "",
     val priority: Priority = Priority.NORMAL,
     val tags: List<String> = emptyList(),
+    /** 发布时刻（毫秒）。只有 RSS/Atom 之类能拿到；0 表示未知，用抓取时间兜底。 */
+    val publishedAt: Long = 0,
 )
 
 /**
@@ -82,6 +84,25 @@ data class Task(
 ) {
     val effectiveDueAt: Long get() = if (snoozedUntil > 0) snoozedUntil else dueAt
 }
+
+/**
+ * 信息流里的一篇文章（订阅页用）。
+ *
+ * 和 [Alert] 的区别：Alert 是「要送到手表的一条通知」（会被裁剪、可能重复送达）；
+ * Article 是「留在手机上可回看的原文记录」，带已读状态，不参与通知去重。
+ */
+data class Article(
+    val source: String,
+    val key: String,
+    val title: String,
+    val url: String = "",
+    val summary: String = "",
+    val publishedAt: Long = 0,
+    val fetchedAt: Long = 0,
+    val readAt: Long = 0,
+    val starred: Boolean = false,
+    val id: Long = 0,
+)
 
 /** 重复规则：每天哪些时间点 + 一周里哪几天。`days` 为空表示每天。 */
 data class Reminder(

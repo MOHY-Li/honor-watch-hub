@@ -7,7 +7,9 @@ import android.provider.Settings
 import dev.watchhub.app.App
 import dev.watchhub.app.Container
 import dev.watchhub.app.core.LogBus
+import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.model.Alert
+import dev.watchhub.app.core.model.Article
 import dev.watchhub.app.core.model.Priority
 import dev.watchhub.app.core.model.Reminder
 import dev.watchhub.app.core.model.Task
@@ -17,6 +19,7 @@ import dev.watchhub.app.health.HealthAction
 import dev.watchhub.app.health.HealthItem
 import dev.watchhub.app.health.HealthLevel
 import dev.watchhub.app.service.HubService
+import dev.watchhub.app.source.FeedDiscovery
 import dev.watchhub.app.source.SourceDef
 import dev.watchhub.app.source.SourceKind
 import dev.watchhub.app.update.UpdateCheck
@@ -92,6 +95,25 @@ object HubUi {
         val calendarEnabled: Boolean,
         val mirrorConfirmed: Boolean,
         val wantRun: Boolean,
+    )
+
+    /** 订阅页的订阅源一行。 */
+    data class SubscriptionRow(
+        val name: String,
+        val unread: Int,
+        val enabled: Boolean,
+        val statusText: String,
+    )
+
+    /** 订阅页的文章一行。 */
+    data class ArticleRow(
+        val id: Long,
+        val title: String,
+        val source: String,
+        val url: String,
+        val summary: String,
+        val timeText: String,
+        val unread: Boolean,
     )
 
     // ---------------- 读取 ----------------
@@ -212,6 +234,124 @@ object HubUi {
     }
 
     fun rawSourcesJson(ctx: Context): String = c(ctx).sources.rawJson()
+
+    /** 订阅源列表（kind=rss）。 */
+    fun subscriptions(ctx: Context): List<SubscriptionRow> {
+        val c = c(ctx)
+        val now = c.clock.now()
+        return c.sources.all().filter { it.kind == SourceKind.RSS }.map { def ->
+            val state = c.sources.stateOf(def.name)
+            SubscriptionRow(
+                name = def.name,
+                unread = c.articles.unreadCount(def.name),
+                enabled = def.enabled,
+                statusText = when {
+                    !def.enabled -> "已暂停"
+                    state.lastError != null -> "抓取失败：${state.lastError.take(60)}"
+                    state.lastOk > 0 -> "更新于 ${ago(now - state.lastOk)}前"
+                    else -> "等待首次抓取"
+                },
+            )
+        }
+    }
+
+    /** 文章列表，可按订阅源过滤 / 只看未读。 */
+    fun articles(
+        ctx: Context,
+        source: String? = null,
+        unreadOnly: Boolean = false,
+        limit: Int = 200,
+    ): List<ArticleRow> {
+        val c = c(ctx)
+        return c.articles.recent(limit, source, unreadOnly).map { a ->
+            ArticleRow(
+                id = a.id,
+                title = a.title,
+                source = a.source,
+                url = a.url,
+                summary = a.summary,
+                timeText = formatWhen(if (a.publishedAt > 0) a.publishedAt else a.fetchedAt),
+                unread = a.readAt == 0L,
+            )
+        }
+    }
+
+    fun unreadArticleCount(ctx: Context): Int = c(ctx).articles.unreadCount()
+
+    fun articleById(ctx: Context, id: Long): Article? = c(ctx).articles.byId(id)
+
+    fun markArticleRead(ctx: Context, id: Long) {
+        val c = c(ctx)
+        c.articles.markRead(id, c.clock.now())
+    }
+
+    fun markAllArticlesRead(ctx: Context, source: String? = null): Int {
+        val c = c(ctx)
+        val n = c.articles.markAllRead(source, c.clock.now())
+        LogBus.post("全部标为已读：$source".replace("：null", "（全部）"))
+        return n
+    }
+
+    /**
+     * 添加 RSS 订阅：用户填网页或 feed 地址，自动发现 feed 并落库。
+     *
+     * 阻塞网络调用，必须在后台线程调用。返回生成的源名。
+     */
+    fun addRssSubscription(ctx: Context, rawUrl: String): Result<String> {
+        return runCatching {
+            val c = c(ctx)
+            val url = rawUrl.trim()
+            require(url.startsWith("http://") || url.startsWith("https://")) {
+                "地址必须以 http:// 或 https:// 开头"
+            }
+            val feeds = FeedDiscovery.discover(url)
+            require(feeds.isNotEmpty()) {
+                "这个页面没有找到 RSS/Atom 订阅源；如果知道 feed 直链，可以直接填它"
+            }
+            val feedUrl = feeds.first()
+            val existing = c.sources.all().map { it.name }.toSet()
+            val base = Text.slug(feedUrl)
+            var name = base
+            var i = 2
+            while (name in existing) name = "$base-${i++}"
+            val json = org.json.JSONObject().apply {
+                put("name", name)
+                put("kind", "rss")
+                put("url", feedUrl)
+                put("interval", 900)
+                put("limit", 30)
+                put("enabled", true)
+                put("priority", "normal")
+                put("tags", org.json.JSONArray().put("rss"))
+            }
+            val def = dev.watchhub.app.source.SourceDef.parse(json)
+                ?: throw IllegalArgumentException("生成的订阅配置不合法")
+            c.sources.upsert(def)
+            LogBus.post("新增订阅 $name → $feedUrl")
+            // 立即拉一次，订阅页马上有内容（失败也不影响订阅本身）
+            runCatching { c.poller.checkNow(name) }
+            reconcileAsync(ctx)
+            name
+        }.recoverCatching { t ->
+            throw IllegalArgumentException(t.message ?: "添加订阅失败")
+        }
+    }
+
+    /** 只发现不添加，用于 UI 预览候选 feed。阻塞网络调用。 */
+    fun discoverFeeds(url: String): List<String> = FeedDiscovery.discover(url)
+
+    /**
+     * 手动刷新所有启用的 RSS 订阅（阻塞网络，必须在后台线程调用）。
+     * 返回新入库的文章条数。
+     */
+    fun refreshSubscriptions(ctx: Context): Int {
+        val c = c(ctx)
+        val before = c.articles.totalCount()
+        c.sources.all()
+            .filter { it.kind == SourceKind.RSS && it.enabled }
+            .forEach { def -> runCatching { c.poller.checkNow(def.name) } }
+        return (c.articles.totalCount() - before).coerceAtLeast(0)
+    }
 
     fun recentAlerts(ctx: Context, limit: Int = 100): List<Alert> = c(ctx).alerts.recent(limit)
 

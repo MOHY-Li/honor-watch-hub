@@ -83,6 +83,7 @@ class HubService : Service() {
                     runCatching { c.seen.prune(now = started) }
                     runCatching { c.alerts.prune() }
                     runCatching { c.tasks.pruneObsolete(started) }
+                    runCatching { c.articles.prune(started) }
                     lastMaintenance = started
                 }
 

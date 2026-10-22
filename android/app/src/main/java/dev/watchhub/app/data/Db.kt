@@ -24,7 +24,11 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) migrateV1toV2(db)
+        if (oldVersion < 2) {
+            migrateV1toV2(db)
+        } else if (oldVersion < 3) {
+            createArticles(db)
+        }
     }
 
     private fun createAll(db: SQLiteDatabase) {
@@ -102,6 +106,28 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_unique ON tasks(reminder_id, due_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(status, due_at)")
         db.execSQL("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        createArticles(db)
+    }
+
+    /** v3：订阅页用的文章表（回应 RSS 订阅需求）。 */
+    private fun createArticles(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS articles (
+                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                 source       TEXT NOT NULL,
+                 key          TEXT NOT NULL,
+                 title        TEXT NOT NULL,
+                 url          TEXT NOT NULL DEFAULT '',
+                 summary      TEXT NOT NULL DEFAULT '',
+                 published_at INTEGER NOT NULL DEFAULT 0,
+                 fetched_at   INTEGER NOT NULL DEFAULT 0,
+                 read_at      INTEGER NOT NULL DEFAULT 0,
+                 starred      INTEGER NOT NULL DEFAULT 0,
+                 UNIQUE(source, key)
+               )"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(read_at, published_at)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source, published_at)")
     }
 
     private fun migrateV1toV2(db: SQLiteDatabase) {
@@ -147,6 +173,6 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
 
     companion object {
         private const val NAME = "watchhub.db"
-        const val VERSION = 2
+        const val VERSION = 3
     }
 }

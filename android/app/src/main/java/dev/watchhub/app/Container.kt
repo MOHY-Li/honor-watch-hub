@@ -4,6 +4,7 @@ import android.content.Context
 import dev.watchhub.app.core.Clock
 import dev.watchhub.app.core.WallClock
 import dev.watchhub.app.data.AlertStore
+import dev.watchhub.app.data.ArticleStore
 import dev.watchhub.app.data.Db
 import dev.watchhub.app.data.ReminderStore
 import dev.watchhub.app.data.SeenStore
@@ -29,12 +30,13 @@ class Container(context: Context) {
     val db = Db(ctx)
     val settings = SettingsStore(db)
     val alerts = AlertStore(db)
+    val articles = ArticleStore(db)
     val seen = SeenStore(db)
     val sources = SourceStore(db)
     val reminders = ReminderStore(db)
     val tasks = TaskStore(db)
 
-    val poller = Poller(sources, alerts, seen, clock)
+    val poller = Poller(sources, alerts, articles, seen, clock)
     val engine = ReminderEngine(reminders, tasks, alerts, clock)
     val deliverer = Deliverer(ctx, alerts, settings, clock)
     val scheduler = Scheduler(ctx, clock)

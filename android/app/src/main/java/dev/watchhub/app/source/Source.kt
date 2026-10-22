@@ -152,6 +152,7 @@ abstract class BaseSource(protected val def: SourceDef) : Source {
         body: String = "",
         detail: String = "",
         url: String = "",
+        publishedAt: Long = 0,
     ): FeedItem = FeedItem(
         source = def.name,
         key = if (key.isBlank()) "" else "${def.name}:${Text.key(key)}",
@@ -161,6 +162,7 @@ abstract class BaseSource(protected val def: SourceDef) : Source {
         url = url.take(2000),
         priority = def.priority,
         tags = def.tags,
+        publishedAt = publishedAt,
     )
 }
 

@@ -1,5 +1,6 @@
 package dev.watchhub.app.source
 
+import dev.watchhub.app.core.model.FeedItem
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -7,6 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 /**
  * 采集器解析层的纯 JVM 单测：不联网，直接喂文本给各 Source 的 parse()。
@@ -130,6 +132,102 @@ class SourceParsersTest {
     fun rssRejectsMalformedXml() {
         val e = runCatching { rss().parse("<rss><channel>") }.exceptionOrNull()
         assertTrue("非法 XML 必须抛异常", e != null)
+    }
+
+    // --------------------------------------------------------------- 发布时间解析
+
+    private fun oneItem(xml: String): FeedItem = rss().parse(xml).single()
+
+    @Test
+    fun rssParsesRfc1123PubDate() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>Mon, 21 Oct 2026 09:30:00 GMT</pubDate></item></channel></rss>"""
+        // 源站星期写错也照样解析：星期对时间戳没有信息量，不该让整条失效
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun rssParsesRfc1123WithNumericOffset() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>Wed, 21 Oct 2026 17:30:00 +0800</pubDate></item></channel></rss>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun atomParsesIsoInstantPublished() {
+        val xml = """<feed><entry><title>t</title><id>i1</id>""" +
+            """<published>2026-10-21T09:30:00Z</published></entry></feed>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun atomParsesIsoOffsetUpdated() {
+        val xml = """<feed><entry><title>t</title><id>i1</id>""" +
+            """<updated>2026-10-21T17:30:00+08:00</updated></entry></feed>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun rssParsesDateOnlyPubDate() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>2026-10-21</pubDate></item></channel></rss>"""
+        // date-only 按 UTC 当天零点解释，避免机器时区影响结果
+        assertEquals(
+            Instant.parse("2026-10-21T00:00:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun rssParsesDcDate() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<dc:date>2026-10-21T09:30:00Z</dc:date></item></channel></rss>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun invalidOrMissingDateIsZero() {
+        val bad = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>not-a-date</pubDate></item></channel></rss>"""
+        assertEquals(0, oneItem(bad).publishedAt)
+        assertEquals(0, rss().parse(RSS2)[0].publishedAt)
+    }
+
+    @Test
+    fun pubDateTakesPrecedenceOverUpdated() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>Wed, 21 Oct 2026 09:30:00 GMT</pubDate>""" +
+            """<updated>2026-10-20T00:00:00Z</updated></item></channel></rss>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
+    }
+
+    @Test
+    fun invalidPubDateFallsBackToPublished() {
+        val xml = """<rss><channel><item><title>t</title><guid>g1</guid>""" +
+            """<pubDate>garbage</pubDate><published>2026-10-21T09:30:00Z</published>""" +
+            """</item></channel></rss>"""
+        assertEquals(
+            Instant.parse("2026-10-21T09:30:00Z").toEpochMilli(),
+            oneItem(xml).publishedAt,
+        )
     }
 
     // ---------------------------------------------------------------------- JSON
