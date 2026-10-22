@@ -96,6 +96,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin master
+          # Prepare release asset 步骤改写了工作区的 dist/latest.json；
+          # 在 tag 上检出时这个文件是「已修改未提交」状态，直接 checkout 会被 git 拒绝。
+          # 先丢弃这个本地改动（内容已备份到 /tmp），再切到 master。
+          git checkout -- dist/latest.json
           git checkout master
           mkdir -p dist
           cp /tmp/latest.json dist/latest.json
