@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -114,32 +115,30 @@ class MainActivity : AppCompatActivity() {
         b.root.post { refreshGlassBackdrop() }
     }
 
-    /** 配置悬浮切换栏。4 个 tab：状态 / 数据源 / 通知 / 设置。 */
+    /** 配置悬浮切换栏。3 个 tab，对应 3 个独立页面。 */
     private fun setupDock() {
         b.dock.items = listOf(
             FloatingDock.Item(0, "状态", R.drawable.ic_home),
             FloatingDock.Item(1, "数据源", R.drawable.ic_sources),
-            FloatingDock.Item(2, "通知", R.drawable.ic_bell),
-            FloatingDock.Item(3, "设置", R.drawable.ic_settings),
+            FloatingDock.Item(2, "设置", R.drawable.ic_settings),
         )
         b.dock.selectedIndex = 0
-        b.dock.onSelect = { index -> onDockSelected(index) }
+        b.dock.onSelect = { index -> showPage(index) }
     }
 
     /**
-     * dock 切换：滚动到对应区块。
+     * 切换页面。
      *
-     * 没有做成 ViewPager 是有意的 —— 这个 App 只有一屏内容，
-     * 分页会让人以为有 4 个独立页面，滚动锚点更符合直觉。
+     * 三个页面互斥显示，而不是滚动到锚点——
+     * 之前一屏塞了 16 个控件，滚动找东西很累。
      */
-    private fun onDockSelected(index: Int) {
-        val target = when (index) {
-            0 -> b.cardStatus
-            1 -> b.llSources
-            2 -> b.tvHistory
-            else -> b.btnBattery
-        }
-        b.scroll.smoothScrollTo(0, maxOf(0, target.top - 24))
+    private fun showPage(index: Int) {
+        b.pageStatus.visibility = if (index == 0) View.VISIBLE else View.GONE
+        b.pageSources.visibility = if (index == 1) View.VISIBLE else View.GONE
+        b.pageSettings.visibility = if (index == 2) View.VISIBLE else View.GONE
+        b.dock.selectedIndex = index
+        b.scroll.scrollTo(0, 0)
+        if (index == 0) refresh()
     }
 
     /**

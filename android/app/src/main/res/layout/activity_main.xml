@@ -3,75 +3,114 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFF7F8FA">
+    android:background="#FFF5F6F8">
 
-<ScrollView
-    android:id="@+id/scroll"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:clipToPadding="false"
-    android:paddingBottom="104dp">
-
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/scroll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="18dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="112dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="WatchHub"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:textColor="#FF1A1D24" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="本机中枢 · 全部在手机上跑，不依赖电脑"
-            android:textSize="13sp"
-            android:textColor="#FF6B7280" />
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp">
 
-        <!-- 状态卡 -->
-        <dev.watchhub.app.ui.glass.GlassCard
-            android:id="@+id/cardStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WatchHub"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FF14161A" />
 
+            <!-- ========== 页 1：状态 ========== -->
             <LinearLayout
+                android:id="@+id/pageStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <dev.watchhub.app.ui.glass.GlassCard
+                    android:id="@+id/cardStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="18dp">
+
+                        <TextView
+                            android:id="@+id/tvStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="未启动"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:textColor="#FF14161A" />
+
+                        <TextView
+                            android:id="@+id/tvSub"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="点下方按钮启动中枢"
+                            android:textSize="13sp"
+                            android:textColor="#FF6B7280" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnToggle"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:layout_marginTop="14dp"
+                            android:text="启动中枢"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+                </dev.watchhub.app.ui.glass.GlassCard>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginBottom="6dp"
+                    android:text="最近通知"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B7280" />
+
+                <TextView
+                    android:id="@+id/tvHistory"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#FFFFFFFF"
+                    android:padding="14dp"
+                    android:lineSpacingExtra="5dp"
+                    android:textSize="13sp"
+                    android:textColor="#FF374151" />
+            </LinearLayout>
+
+            <!-- ========== 页 2：数据源 ========== -->
+            <LinearLayout
+                android:id="@+id/pageSources"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/tvStatus"
+                <LinearLayout
+                    android:id="@+id/llSources"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="未启动"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF374151" />
-
-                <TextView
-                    android:id="@+id/tvSub"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="点下面按钮启动本地中枢"
-                    android:textSize="12sp"
-                    android:textColor="#FF6B7280" />
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/swBoot"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="开机自动启动" />
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -80,143 +119,132 @@
                     android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnToggle"
+                        android:id="@+id/btnEditSources"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="启动中枢" />
+                        android:text="编辑配置"
+                        style="@style/Widget.Material3.Button.OutlinedButton" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnTest"
+                        android:id="@+id/btnResetSources"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
-                        android:text="测试通知"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        android:text="恢复默认"
+                        style="@style/Widget.Material3.Button.TextButton" />
                 </LinearLayout>
+            </LinearLayout>
+
+            <!-- ========== 页 3：设置 ========== -->
+            <LinearLayout
+                android:id="@+id/pageSettings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <TextView
-                    android:id="@+id/tvVersion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="应用"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B7280" />
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="版本 …"
-                    android:textSize="12sp"
+                    android:background="#FFFFFFFF"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="版本"
+                        android:textSize="14sp"
+                        android:textColor="#FF14161A" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnUpdate"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="检查更新"
+                        style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swBoot"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="开机自动启动" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBattery"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="关闭电池限制"
+                        style="@style/Widget.Material3.Button.TextButton" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTest"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="发送测试通知"
+                        style="@style/Widget.Material3.Button.TextButton" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="让通知上手表"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     android:textColor="#FF6B7280" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnUpdate"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="检查更新"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
+                    android:layout_marginTop="6dp"
+                    android:background="#FFFFFFFF"
+                    android:padding="16dp"
+                    android:lineSpacingExtra="5dp"
+                    android:text="1. 荣耀运动健康 → 设备 → 消息通知 → 勾选 WatchHub\n2. 手机设置 → 通知 → WatchHub → 设为重要\n3. 手机设置 → 电池 → 应用启动管理 → WatchHub 手动全开"
+                    android:textSize="13sp"
+                    android:textColor="#FF4B5563" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnBattery"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="关闭电池限制（重要）"
-                    style="@style/Widget.Material3.Button.TextButton" />
+                    android:layout_marginTop="18dp"
+                    android:text="运行日志"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B7280" />
+
+                <TextView
+                    android:id="@+id/tvLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="#FFFFFFFF"
+                    android:fontFamily="monospace"
+                    android:padding="12dp"
+                    android:lineSpacingExtra="2dp"
+                    android:textSize="11sp"
+                    android:textColor="#FF6B7280" />
             </LinearLayout>
-        </dev.watchhub.app.ui.glass.GlassCard>
-
-        <!-- 源列表 -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="数据源"
-            android:textStyle="bold"
-            android:textColor="#FF1A1D24" />
-
-        <LinearLayout
-            android:id="@+id/llSources"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnEditSources"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="编辑配置 (JSON)"
-                style="@style/Widget.Material3.Button.OutlinedButton" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnResetSources"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="恢复默认"
-                style="@style/Widget.Material3.Button.TextButton" />
         </LinearLayout>
+    </ScrollView>
 
-        <!-- 历史 -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="最近通知"
-            android:textStyle="bold"
-            android:textColor="#FF1A1D24" />
-
-        <TextView
-            android:id="@+id/tvHistory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textSize="12sp"
-            android:lineSpacingExtra="3dp"
-            android:textColor="#FF4B5563" />
-
-        <!-- 手表提示 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="让通知上手表"
-            android:textStyle="bold"
-            android:textColor="#FF1A1D24" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="荣耀运动健康 → 设备 → 消息通知 → 勾选 WatchHub\n手机设置 → 通知 → WatchHub → 「WatchHub 推送」设为重要\n手机设置 → 电池 → 应用启动管理 → WatchHub 手动全开"
-            android:textSize="13sp"
-            android:lineSpacingExtra="4dp"
-            android:textColor="#FF4B5563" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="日志"
-            android:textStyle="bold"
-            android:textColor="#FF1A1D24" />
-
-        <TextView
-            android:id="@+id/tvLog"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:fontFamily="monospace"
-            android:textSize="11sp"
-            android:textColor="#FF6B7280" />
-    </LinearLayout>
-</ScrollView>
-
-    <!-- 悬浮切换栏：悬浮在内容上方，底部留出安全距离 -->
     <dev.watchhub.app.ui.glass.FloatingDock
         android:id="@+id/dock"
         android:layout_width="match_parent"

@@ -135,15 +135,17 @@ class GlassCard @JvmOverloads constructor(
         val w = width.toFloat()
         val h = height.toFloat()
 
-        // 背景位图缩放成着色器能采样的输入
-        val bmp = backdrop ?: return
+        // 只取卡片所在位置的背景，而不是把整屏压进卡片。
+        //
+        // 之前是整张背景图缩放铺满卡片，导致玻璃里看到的是「缩小的整屏」，
+        // 和背后真实内容完全对不上，视觉上非常乱。
+        val full = backdrop ?: return
+        val loc = IntArray(2)
+        getLocationInWindow(loc)
+        val bmp = cropBackdrop(full, loc[0], loc[1], width, height)
         val bgShader = android.graphics.BitmapShader(
-            bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP
-        ).apply {
-            val sx = w / bmp.width
-            val sy = h / bmp.height
-            setLocalMatrix(android.graphics.Matrix().apply { setScale(sx, sy) })
-        }
+            bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP,
+        )
 
         shaderWrapper!!.bind(s, w, h)
         val shader = runtimeShader!!
@@ -203,6 +205,29 @@ class GlassCard @JvmOverloads constructor(
             canvas.drawRoundRect(0.5f, 0.5f, w - 0.5f, h - 0.5f, r, r, backdropPaint)
             backdropPaint.style = Paint.Style.FILL
         }
+    }
+
+    /**
+     * 从整屏背景里裁出卡片对应的那块。
+     *
+     * 卡片位置来自 getLocationInWindow，减去根 View 在窗口中的偏移，
+     * 因为背景图是从根 View 画的。
+     */
+    private fun cropBackdrop(
+        full: android.graphics.Bitmap,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+    ): android.graphics.Bitmap {
+        val root = rootView
+        val rootLoc = IntArray(2)
+        root.getLocationInWindow(rootLoc)
+        val rx = (x - rootLoc[0]).coerceIn(0, maxOf(0, full.width - 1))
+        val ry = (y - rootLoc[1]).coerceIn(0, maxOf(0, full.height - 1))
+        val cw = minOf(w, full.width - rx).coerceAtLeast(1)
+        val ch = minOf(h, full.height - ry).coerceAtLeast(1)
+        return android.graphics.Bitmap.createBitmap(full, rx, ry, cw, ch)
     }
 
     private fun drawPlainGlass(canvas: Canvas, s: GlassStyle, r: Float) {
