@@ -132,7 +132,6 @@ object HubUi {
         val now = c.clock.now()
         val zone = ZoneId.systemDefault()
         val date = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val tomorrowStart = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val names = c.reminders.all().associate { it.id to it.name }
         val all = c.tasks.recent(300)
@@ -406,7 +405,7 @@ object HubUi {
     // ---------------- 自更新 ----------------
 
     /** 阻塞网络调用，必须在后台线程调用。 */
-    fun checkUpdate(ctx: Context): UpdateCheck = Updater.check()
+    fun checkUpdate(): UpdateCheck = Updater.check()
 
     fun downloadUpdate(ctx: Context, manifest: UpdateManifest, onDone: (Boolean, String) -> Unit): Long =
         Updater.download(ctx, manifest, onDone)

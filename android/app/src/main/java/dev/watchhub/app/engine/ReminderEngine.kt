@@ -59,7 +59,7 @@ class ReminderEngine(
                 key = "rem:${task.id}:${task.effectiveDueAt}",
                 kind = AlertKind.REMINDER,
                 source = reminder?.name.orEmpty(),
-                body = if (isLate) TaskRules.lateBody(task, now) else task.body,
+                body = if (isLate) TaskRules.lateBody(task) else task.body,
                 detail = task.body,
                 priority = task.priority,
                 tags = listOf("reminder"),

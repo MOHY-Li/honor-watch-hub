@@ -172,7 +172,7 @@ class SettingsFragment : Fragment() {
         toast(getString(R.string.update_checking))
         val appCtx = requireContext().applicationContext
         Thread({
-            val result = runCatching { HubUi.checkUpdate(appCtx) }
+            val result = runCatching { HubUi.checkUpdate() }
             handler.post {
                 checkingUpdate = false
                 if (!isAdded) return@post

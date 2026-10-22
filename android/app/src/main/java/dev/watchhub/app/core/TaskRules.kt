@@ -37,9 +37,13 @@ object TaskRules {
 
     fun isLate(task: Task, now: Long): Boolean = now - task.effectiveDueAt > LATE_THRESHOLD_MS
 
-    /** 迟到提醒的正文：必须写明原定时间，否则用户不知道这是补的还是刚到的。 */
-    fun lateBody(task: Task, now: Long): String {
-        val zone = java.time.ZoneId.systemDefault()
+    /**
+     * 迟到提醒的正文：必须写明原定时间，否则用户不知道这是补的还是刚到的。
+     *
+     * zone 显式注入：这个函数只做展示格式化，但不能依赖运行机器的默认时区，
+     * 否则在 CI（UTC）和手机上（Asia/Shanghai）会得到不同文案，测试也不可重复。
+     */
+    fun lateBody(task: Task, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String {
         val at = java.time.Instant.ofEpochMilli(task.effectiveDueAt).atZone(zone)
         val original = java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(at)
         val prefix = "迟到 · 原定 $original"

@@ -105,7 +105,7 @@ class TaskRulesTest {
     @Test
     fun lateBody_containsOriginalTime() {
         val t = task(1, ms(19, 9, 30), body = "起身走两步")
-        val body = TaskRules.lateBody(t, ms(19, 12, 0))
+        val body = TaskRules.lateBody(t, zone)
         assertTrue(body.startsWith("迟到 · 原定 09:30"))
         assertTrue(body.contains("起身走两步"))
     }
@@ -113,6 +113,13 @@ class TaskRulesTest {
     @Test
     fun lateBody_withoutBody() {
         val t = task(1, ms(19, 9, 30), body = "")
-        assertEquals("迟到 · 原定 09:30", TaskRules.lateBody(t, ms(19, 12, 0)))
+        assertEquals("迟到 · 原定 09:30", TaskRules.lateBody(t, zone))
+    }
+
+    @Test
+    fun lateBody_timezoneExplicit() {
+        val t = task(1, ms(19, 9, 30), body = "")
+        // 同一个时间戳在 UTC 下应显示 01:30；证明文案只取决于传入的 zone，与运行环境无关
+        assertEquals("迟到 · 原定 01:30", TaskRules.lateBody(t, java.time.ZoneId.of("UTC")))
     }
 }
