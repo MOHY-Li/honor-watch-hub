@@ -12,15 +12,31 @@ android {
         minSdk = 24
         targetSdk = 34
         // versionCode 必须单调递增，自更新靠它比较新旧
-        versionCode = 10202
-        versionName = "1.2.2"
+        versionCode = 10203
+        versionName = "1.2.3"
 
         // 自更新清单地址（CI 发布时覆盖 dist/latest.json）
         buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json\"")
     }
 
+    signingConfigs {
+        create("release") {
+            // CI 通过环境变量注入；本地从 .keystore/ 读
+            val ksPath = System.getenv("WATCHHUB_KEYSTORE")
+                ?: rootProject.file("../.keystore/watchhub.jks").absolutePath
+            val ksFile = file(ksPath)
+            if (ksFile.exists()) {
+                storeFile = ksFile
+                storePassword = System.getenv("WATCHHUB_STORE_PASS") ?: "watchhub2026"
+                keyAlias = System.getenv("WATCHHUB_KEY_ALIAS") ?: "watchhub"
+                keyPassword = System.getenv("WATCHHUB_KEY_PASS") ?: "watchhub2026"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

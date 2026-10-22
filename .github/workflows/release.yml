@@ -1,17 +1,9 @@
 name: Release
 
-# 打 tag（v*）时自动构建 APK、发 Release、并把更新清单写回 dist/latest.json。
-# App 里的「检查更新」读的就是 master 分支上那个 raw 链接。
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
-
-# 同分支新提交取消旧构建，省 CI 时间；
-# 但 tag 触发的发布绝不取消（参考 FlClash 的做法）。
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
 permissions:
   contents: write
@@ -28,10 +20,17 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+
+      - name: Restore keystore
+        env:
+          KS_B64: ${{ secrets.WATCHHUB_KEYSTORE_B64 }}
+        run: |
+          echo "$KS_B64" | base64 --decode > "$GITHUB_WORKSPACE/watchhub.keystore"
+          ls -l "$GITHUB_WORKSPACE/watchhub.keystore"
 
       - name: Unit tests
         working-directory: android
@@ -39,70 +38,68 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest --no-daemon
 
-      - name: Build APK
+      - name: Lint
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:lintDebug --no-daemon
 
-      - name: Collect version info
+      - name: Build signed APK
+        working-directory: android
+        env:
+          WATCHHUB_KEYSTORE: ${{ github.workspace }}/watchhub.keystore
+          WATCHHUB_STORE_PASS: ${{ secrets.WATCHHUB_STORE_PASS }}
+          WATCHHUB_KEY_ALIAS: watchhub
+          WATCHHUB_KEY_PASS: ${{ secrets.WATCHHUB_STORE_PASS }}
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Verify signature
+        run: |
+          SDK="$ANDROID_HOME/build-tools/34.0.0"
+          "$SDK/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Collect version
         id: ver
         run: |
-          GRADLE=android/app/build.gradle.kts
-          CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' "$GRADLE" | head -1)
-          NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "$GRADLE" | head -1)
-          # 手动触发时没有 tag，用 v$NAME 兜底
+          G=android/app/build.gradle.kts
+          CODE=$(sed -n "s/.*versionCode = //p" "$G" | tr -d " ")
+          NAME=$(sed -n "s/.*versionName = //p" "$G" | tr -d " " | tr -d "\042")
           TAG="${GITHUB_REF_NAME}"
-          case "$TAG" in
-            v*) ;;
-            *) TAG="v$NAME" ;;
-          esac
+          case "$TAG" in v*) ;; *) TAG="v$NAME" ;; esac
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare asset and manifest
+      - name: Prepare release asset
         env:
           TAG: ${{ steps.ver.outputs.tag }}
           CODE: ${{ steps.ver.outputs.code }}
           VNAME: ${{ steps.ver.outputs.name }}
         run: |
           set -euo pipefail
-          APK=android/app/build/outputs/apk/debug/app-debug.apk
-          cp "$APK" WatchHub.apk
-          python3 scripts/make_manifest.py \
-            --apk WatchHub.apk \
-            --tag "$TAG" \
-            --code "$CODE" \
-            --name "$VNAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --out dist/latest.json
-          echo "--- manifest ---"
+          cp android/app/build/outputs/apk/release/app-release.apk WatchHub.apk
+          python3 scripts/make_manifest.py --apk WatchHub.apk --tag "$TAG" --code "$CODE" --name "$VNAME" --repo "$GITHUB_REPOSITORY" --out dist/latest.json
           cat dist/latest.json
 
-      - name: Upload to Release
+      - name: Upload release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: WatchHub ${{ steps.ver.outputs.name }}
-          body: |
-            WatchHub ${{ steps.ver.outputs.name }}（versionCode ${{ steps.ver.outputs.code }}）
-
-            安装：下载 `WatchHub.apk` 覆盖安装即可，数据与配置会保留。
           files: WatchHub.apk
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit latest.json to master
+      - name: Commit manifest
         run: |
           set -euo pipefail
+          cp dist/latest.json /tmp/latest.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          cp dist/latest.json /tmp/latest.json
           git fetch origin master
           git checkout master
           mkdir -p dist
           cp /tmp/latest.json dist/latest.json
-          git diff --quiet dist/latest.json && echo "清单无变化" && exit 0
+          if git diff --quiet dist/latest.json; then echo no-change; exit 0; fi
           git add -f dist/latest.json
-          git commit -m "chore: 更新清单 ${{ steps.ver.outputs.name }}"
+          git commit -m "chore: manifest ${{ steps.ver.outputs.name }}"
           git push origin master
