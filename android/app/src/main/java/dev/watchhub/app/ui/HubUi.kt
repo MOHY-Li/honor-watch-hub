@@ -8,6 +8,7 @@ import dev.watchhub.app.App
 import dev.watchhub.app.Container
 import dev.watchhub.app.core.LogBus
 import dev.watchhub.app.core.Text
+import dev.watchhub.app.core.TtlCache
 import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.Article
 import dev.watchhub.app.core.model.Priority
@@ -361,10 +362,23 @@ object HubUi {
 
     fun clearLogs() = LogBus.clear()
 
+    /**
+     * 体检结果缓存 30 秒。
+     *
+     * 首页 15 秒刷新一次，但体检里的 PackageManager / AlarmManager 查询没必要同频；
+     * 缓存只在进程内，时间通过 Clock 注入，可单测（见 TtlCacheTest）。
+     */
+    private val healthCache = TtlCache<List<HealthItem>>(ttlMs = 30_000L)
+
     fun health(ctx: Context): List<HealthItem> {
         val c = c(ctx)
-        return Health(c.ctx, c.settings, c.alerts, c.sources, c.clock).check()
+        return healthCache.get(c.clock.now()) {
+            Health(c.ctx, c.settings, c.alerts, c.sources, c.clock).check()
+        }
     }
+
+    /** 体检页手动刷新时用。 */
+    fun invalidateHealthCache() = healthCache.invalidate()
 
     fun settings(ctx: Context): SettingsSnapshot {
         val c = c(ctx)

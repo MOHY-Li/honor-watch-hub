@@ -199,6 +199,6 @@ class HomeFragment : Fragment() {
     }
 
     companion object {
-        private const val REFRESH_MS = 5_000L
+        private const val REFRESH_MS = 15_000L
     }
 }

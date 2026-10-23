@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import dev.watchhub.app.App
 import dev.watchhub.app.Container
 import dev.watchhub.app.core.LogBus
+import dev.watchhub.app.core.ServicePolicy
 import dev.watchhub.app.delivery.Notifier
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -30,6 +31,11 @@ class HubService : Service() {
     private var thread: Thread? = null
     private val stopRequested = AtomicBoolean(false)
     private var wake: PowerManager.WakeLock? = null
+
+    // 循环策略状态（ServicePolicy 的输入），只在服务线程读写
+    private var lastMaterializeAt = 0L
+    private var lastArmedTarget: Long? = null
+    private var lastNotificationText: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -65,14 +71,32 @@ class HubService : Service() {
         while (!stopRequested.get()) {
             val started = c.clock.now()
             try {
-                keepAwake()
                 c.settings.heartbeatAt = started
 
-                c.poller.tick()
-                c.engine.materialize()
+                // 任务已提前补到 7 天后，每小时补一次足够（见 ServicePolicy 单测）
+                if (ServicePolicy.shouldMaterialize(started, lastMaterializeAt)) {
+                    c.engine.materialize()
+                    lastMaterializeAt = c.clock.now()
+                }
                 c.engine.due()
                 val sent = c.deliverer.dispatchPending()
-                c.scheduler.armAt(c.engine.nextDueAt())
+
+                // 目标没变就不重复调 AlarmManager
+                val next = c.engine.nextDueAt()
+                if (ServicePolicy.shouldRearm(lastArmedTarget, next)) {
+                    c.scheduler.armAt(next)
+                    lastArmedTarget = next
+                }
+
+                // 只有真的要去抓源时才持锁，抓完立刻释放
+                if (c.poller.hasDueWork(started)) {
+                    keepAwake(WAKE_ON_POLL_MS)
+                    try {
+                        c.poller.tick()
+                    } finally {
+                        releaseWake()
+                    }
+                }
 
                 if (started - lastCalendar > CALENDAR_INTERVAL_MS) {
                     runCatching { c.calendar.sync() }
@@ -88,12 +112,18 @@ class HubService : Service() {
                 }
 
                 c.settings.heartbeatAt = c.clock.now()
-                update(summary(sent))
+                val text = summary(sent)
+                if (ServicePolicy.shouldUpdateNotification(lastNotificationText, text)) {
+                    update(text)
+                    lastNotificationText = text
+                }
             } catch (t: Throwable) {
                 LogBus.post("中枢循环异常: ${t.javaClass.simpleName}: ${t.message}")
             }
+            // 有 2 分钟内到期任务用 20s，否则 60s；提醒准点性由 AlarmManager 保证
+            val interval = ServicePolicy.tickIntervalMs(c.clock.now(), c.engine.nextDueAt())
             val elapsed = c.clock.now() - started
-            sleep((TICK_MS - elapsed).coerceAtLeast(1_000L))
+            sleep((interval - elapsed).coerceAtLeast(1_000L))
         }
         update("已停止")
     }
@@ -133,18 +163,14 @@ class HubService : Service() {
         }
     }
 
-    /** 前台服务仍可能被 Doze 掐网络，短时持锁并在每个 tick 续期。 */
-    private fun keepAwake() {
+    /** 只在真正联网抓源时持锁，抓完立刻释放，避免常驻持锁。 */
+    private fun keepAwake(timeoutMs: Long) {
         if (wake == null) {
             wake = (getSystemService(Context.POWER_SERVICE) as PowerManager)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WatchHub:hub")
-                .apply {
-                    setReferenceCounted(false)
-                    acquire(WAKE_TIMEOUT_MS)
-                }
-        } else if (wake?.isHeld != true) {
-            wake?.acquire(WAKE_TIMEOUT_MS)
+                .apply { setReferenceCounted(false) }
         }
+        if (wake?.isHeld != true) wake?.acquire(timeoutMs)
     }
 
     private fun releaseWake() {
@@ -164,8 +190,7 @@ class HubService : Service() {
     companion object {
         const val ACTION_STOP = "dev.watchhub.app.STOP"
         private const val FOREGROUND_ID = 42
-        private const val TICK_MS = 20_000L
-        private const val WAKE_TIMEOUT_MS = 10 * 60_000L
+        private const val WAKE_ON_POLL_MS = 5 * 60_000L
         private const val MAINTENANCE_INTERVAL_MS = 3600_000L
         private const val CALENDAR_INTERVAL_MS = 15 * 60_000L
 

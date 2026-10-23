@@ -58,6 +58,11 @@ class Poller(
         return produced
     }
 
+    /** 是否有到期的源需要联网检查（服务用它决定要不要持 wake lock）。 */
+    fun hasDueWork(now: Long): Boolean = sources.all().any { def ->
+        def.enabled && now >= (lastRun[def.name] ?: 0L) + def.intervalSec * 1000L
+    }
+
     /** 手动触发某个源（忽略倒计时）。 */
     fun checkNow(name: String): Int {
         val def = sources.get(name) ?: return 0
