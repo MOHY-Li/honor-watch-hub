@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationManagerCompat
 import dev.watchhub.app.core.Clock
+import dev.watchhub.app.core.NotificationHealthPolicy
 import dev.watchhub.app.data.AlertStore
 import dev.watchhub.app.data.SettingsStore
 import dev.watchhub.app.data.SourceStore
@@ -126,20 +127,23 @@ class Health(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return HealthItem("channel", "提醒渠道", "系统版本较低，使用默认渠道", HealthLevel.OK)
         }
-        val importance = Notifier.channelImportance(ctx)
-        val name = when (importance) {
-            NotificationManager.IMPORTANCE_NONE -> "已关闭"
-            NotificationManager.IMPORTANCE_MIN -> "低（不会响）"
-            NotificationManager.IMPORTANCE_LOW -> "低（不会响）"
-            NotificationManager.IMPORTANCE_DEFAULT -> "默认"
-            else -> "高"
-        }
-        return if (importance >= NotificationManager.IMPORTANCE_HIGH) {
-            HealthItem("channel", "提醒渠道重要性", "高，可以响铃震动", HealthLevel.OK)
-        } else {
-            HealthItem(
-                "channel", "提醒渠道重要性", "当前为「$name」。调到「高」并在系统里允许打扰，否则手表不震。",
+        return when (NotificationHealthPolicy.classify(Notifier.channelImportance(ctx))) {
+            NotificationHealthPolicy.ChannelState.OFF -> HealthItem(
+                "channel", "提醒渠道", "渠道被关闭了，通知发不出去。点进去重新打开。",
+                HealthLevel.FAIL, HealthAction.CHANNEL_SETTINGS,
+            )
+            NotificationHealthPolicy.ChannelState.LOW -> HealthItem(
+                "channel", "提醒渠道",
+                "当前为「低」，手机上不会响也不会震。能调高就调高；系统没有更高选项时，以「测试通知」是否到手为准。",
                 HealthLevel.WARN, HealthAction.CHANNEL_SETTINGS,
+            )
+            NotificationHealthPolicy.ChannelState.DEFAULT -> HealthItem(
+                "channel", "提醒渠道",
+                "系统只提供「默认」级别（荣耀机型常见），不影响手表镜像；以「测试通知」是否到手为准。",
+                HealthLevel.OK,
+            )
+            NotificationHealthPolicy.ChannelState.HIGH -> HealthItem(
+                "channel", "提醒渠道", "高，可以响铃震动。", HealthLevel.OK,
             )
         }
     }

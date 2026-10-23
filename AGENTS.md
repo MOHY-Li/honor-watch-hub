@@ -83,7 +83,8 @@ delivery → store / core
 
 - 只发最朴素的 title + text，**禁止**自定义 RemoteViews / 大图 / 按钮 / 进度条。
 - 标题 ≤40 字符、正文 ≤120 字符，统一走 `Text.clip()`。
-- 独立渠道 `watchhub_alerts`，`IMPORTANCE_HIGH`；提醒渠道上绝不能 `setSilent(true)`。
+- 独立渠道 `watchhub_alerts`，请求 `IMPORTANCE_HIGH`；提醒渠道上绝不能 `setSilent(true)`。
+  ROM 可能只提供「默认」档——体检按「未关闭 / 未调低」判定，不以必须为高为准（见 2.2.2 SPEC）。
 - 服务常驻通知用 MIN 渠道，避免被镜像。
 - 通知 ID 稳定（用 alert id），tag 稳定，覆盖而不是堆叠。
 
