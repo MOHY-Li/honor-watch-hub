@@ -25,6 +25,7 @@ class Migrator(
     data class Result(val sources: Int, val reminders: Int, val seeded: Boolean, val skipped: Boolean)
 
     fun migrateIfNeeded(): Result {
+        seedAiFeedOnce()
         if (settings.migratedV1) return Result(0, 0, false, skipped = true)
 
         val oldJson = ctx.getSharedPreferences(OLD_PREFS, Context.MODE_PRIVATE)
@@ -62,6 +63,23 @@ class Migrator(
         return Result(sourceCount, reminderCount, seeded, skipped = false)
     }
 
+    /**
+     * 2.4.0：用户要求先加一个 AI 订阅。只执行一次，且已有同名/同 URL 源时跳过；
+     * 用户之后在「源管理」里删掉也不会被重新加回来。
+     */
+    private fun seedAiFeedOnce() {
+        if (settings.getBool(KEY_SEEDED_AI, false)) return
+        settings.putBool(KEY_SEEDED_AI, true)
+        val existing = sources.all()
+        if (existing.any { it.name == AI_FEED_NAME || it.raw.optString("url") == AI_FEED_URL }) return
+        runCatching {
+            dev.watchhub.app.source.SourceDef.parse(org.json.JSONObject(AI_FEED_JSON))?.let {
+                sources.upsert(it)
+                LogBus.post("已添加推荐订阅：${it.name}（可在「源管理」删除）")
+            }
+        }.onFailure { LogBus.post("添加推荐订阅失败: ${it.message}") }
+    }
+
     private fun seedDefaults() {
         DEFAULT_SOURCES.forEach { json ->
             runCatching {
@@ -75,6 +93,20 @@ class Migrator(
 
     companion object {
         private const val OLD_PREFS = "watchhub_sources"
+        private const val KEY_SEEDED_AI = "seeded_ai_feed_24"
+        private const val AI_FEED_NAME = "qbitai"
+        private const val AI_FEED_URL = "https://www.qbitai.com/feed"
+        private val AI_FEED_JSON = """
+            {
+              "name": "qbitai",
+              "kind": "rss",
+              "url": "https://www.qbitai.com/feed",
+              "interval": 900,
+              "limit": 30,
+              "priority": "normal",
+              "tags": ["ai", "rss"]
+            }
+        """.trimIndent()
 
         val DEFAULT_SOURCES: List<String> = listOf(
             """

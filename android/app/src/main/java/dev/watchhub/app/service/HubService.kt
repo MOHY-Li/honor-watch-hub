@@ -135,19 +135,14 @@ class HubService : Service() {
     }
 
     private fun summary(sent: Int): String {
-        val now = c.clock.now()
         val zone = java.time.ZoneId.systemDefault()
-        val date = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val stats = c.tasks.statsBetween(dayStart, dayEnd)
         val next = c.engine.nextDueAt()
         val nextText = if (next == null) "无待办" else {
             val t = java.time.Instant.ofEpochMilli(next).atZone(zone)
             "下次 ${"%02d:%02d".format(t.hour, t.minute)}"
         }
         val head = if (sent > 0) "刚推送 $sent 条 · " else ""
-        return "${head}今日 ${stats.done}/${stats.total} · $nextText"
+        return head + nextText
     }
 
     private fun update(text: String) {

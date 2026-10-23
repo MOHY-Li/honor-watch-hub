@@ -11,7 +11,11 @@ object Http {
     const val DEFAULT_TIMEOUT_MS = 20_000
     const val DEFAULT_MAX_BYTES = 4 * 1024 * 1024
 
-    private const val UA = "WatchHub/2.0 (Android; self-hosted)"
+    // 用浏览器形态的 UA：不少站点（如量子位）会对非浏览器 UA 直接 403。
+    // 末尾保留 WatchHub 标识，方便源站识别。
+    private const val UA =
+        "Mozilla/5.0 (Linux; Android 14; WatchHub/2.4) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
 
     data class Response(val code: Int, val body: ByteArray, val contentType: String?) {
         fun text(): String = String(body, Charsets.UTF_8)

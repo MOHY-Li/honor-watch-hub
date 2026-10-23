@@ -10,6 +10,9 @@ import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -186,35 +189,106 @@ class SubscriptionsFragment : Fragment() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             maxLines = 1
         }
-        val layout = TextInputLayout(ui).apply {
+        val inputLayout = TextInputLayout(ui).apply {
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
             hint = getString(R.string.subs_add_hint)
             addView(input)
         }
+
+        // 推荐订阅区（输入框上方），点一下直接订阅
+        var dialog: androidx.appcompat.app.AlertDialog? = null
+        val content = LinearLayout(ui).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        content.addView(TextView(ui).apply {
+            text = getString(R.string.subs_recommended)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleSmall)
+        })
+        content.addView(TextView(ui).apply {
+            text = getString(R.string.subs_recommended_hint)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+            setTextColor(
+                com.google.android.material.color.MaterialColors.getColor(
+                    this, com.google.android.material.R.attr.colorOnSurfaceVariant,
+                ),
+            )
+        })
+
+        val rippleValue = android.util.TypedValue()
+        ui.theme.resolveAttribute(android.R.attr.selectableItemBackground, rippleValue, true)
+        val ripple = if (rippleValue.resourceId != 0) {
+            androidx.core.content.ContextCompat.getDrawable(ui, rippleValue.resourceId)
+        } else {
+            null
+        }
+        val feeds = runCatching { HubUi.recommendedFeeds() }.getOrElse { emptyList() }
+        feeds.forEach { feed ->
+            val row = LinearLayout(ui).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(8), 0, dp(8))
+                isClickable = true
+                background = ripple
+            }
+            row.addView(TextView(ui).apply {
+                text = feed.name
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+            })
+            row.addView(TextView(ui).apply {
+                text = feed.note
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(
+                    com.google.android.material.color.MaterialColors.getColor(
+                        this, com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    ),
+                )
+            })
+            row.setOnClickListener {
+                dialog?.dismiss()
+                addSubscription(feed.url)
+            }
+            content.addView(row)
+        }
+
+        content.addView(
+            inputLayout,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(16) },
+        )
+
         val pad = (20 * resources.displayMetrics.density).toInt()
         val container = android.widget.FrameLayout(ui).apply {
             setPadding(pad, pad / 2, pad, 0)
-            addView(layout)
+            addView(
+                ScrollView(ui).apply { addView(content) },
+                android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
         }
-        val dialog = MaterialAlertDialogBuilder(ui)
+
+        val dlg = MaterialAlertDialogBuilder(ui)
             .setTitle(R.string.subs_add)
             .setView(container)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.add, null)
             .create()
-        dialog.setOnShowListener {
-            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+        dialog = dlg
+        dlg.setOnShowListener {
+            dlg.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
                 val raw = input.text?.toString()?.trim().orEmpty()
                 if (raw.isBlank()) {
-                    layout.error = getString(R.string.subs_url_required)
+                    inputLayout.error = getString(R.string.subs_url_required)
                     return@setOnClickListener
                 }
-                layout.error = null
-                dialog.dismiss()
+                inputLayout.error = null
+                dlg.dismiss()
                 addSubscription(raw)
             }
         }
-        dialog.show()
+        dlg.show()
     }
 
     private fun addSubscription(raw: String) {
@@ -312,6 +386,8 @@ class SubscriptionsFragment : Fragment() {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
             .onFailure { toast(getString(R.string.subs_open_link_failed)) }
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun toast(text: String) {
         if (!isAdded) return

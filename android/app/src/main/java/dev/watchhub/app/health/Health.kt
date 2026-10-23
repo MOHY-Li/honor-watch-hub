@@ -62,7 +62,6 @@ class Health(
         out.add(battery())
         out.add(serviceHeartbeat())
         out.add(mirrorApp())
-        out.add(mirrorConfirmed())
         out.add(lastDelivery())
         addAlerts(out)
         addSources(out)
@@ -205,21 +204,6 @@ class Health(
             else -> HealthItem("service", "中枢服务", "运行中，心跳 ${age / 1000}s 前", HealthLevel.OK)
         }
     }
-
-    private fun mirrorConfirmed(): HealthItem =
-        if (settings.mirrorConfirmed) {
-            HealthItem(
-                "mirror_confirmed", "手表镜像开关",
-                "已确认在运动健康里勾选 WatchHub",
-                HealthLevel.OK,
-            )
-        } else {
-            HealthItem(
-                "mirror_confirmed", "手表镜像开关",
-                "还没确认。运动健康 → 设备 → 消息通知 → 勾选 WatchHub（只能手动做）",
-                HealthLevel.INFO,
-            )
-        }
 
     private fun lastDelivery(): HealthItem {
         val at = settings.lastDeliveredAt

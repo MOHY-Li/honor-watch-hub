@@ -31,18 +31,38 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <com.google.android.material.checkbox.MaterialCheckBox
-                    android:id="@+id/cb_mirror"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/settings_mirror"
-                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_mirror_desc"
-                    android:textAppearance="@style/TextAppearance.WatchHub.Caption" />
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_open_mirror"
+                            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_open_mirror_desc"
+                            android:textAppearance="@style/TextAppearance.WatchHub.Caption" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_open_mirror"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_open_mirror_action" />
+                </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"

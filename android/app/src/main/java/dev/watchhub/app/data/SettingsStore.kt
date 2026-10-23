@@ -57,11 +57,6 @@ class SettingsStore(private val db: Db) {
         get() = getLong(KEY_LAST_DELIVERED, 0)
         set(v) = putLong(KEY_LAST_DELIVERED, v)
 
-    /** 用户是否已在荣耀运动健康里勾选 WatchHub 的镜像。体检页靠它区分「没勾」和「勾了但没震」。 */
-    var mirrorConfirmed: Boolean
-        get() = getBool(KEY_MIRROR_CONFIRMED, false)
-        set(v) = putBool(KEY_MIRROR_CONFIRMED, v)
-
     var calendarEnabled: Boolean
         get() = getBool(KEY_CALENDAR_ENABLED, false)
         set(v) = putBool(KEY_CALENDAR_ENABLED, v)
@@ -75,7 +70,6 @@ class SettingsStore(private val db: Db) {
         private const val KEY_START_ON_BOOT = "start_on_boot"
         private const val KEY_HEARTBEAT = "heartbeat_at"
         private const val KEY_LAST_DELIVERED = "last_delivered_at"
-        private const val KEY_MIRROR_CONFIRMED = "mirror_confirmed"
         private const val KEY_CALENDAR_ENABLED = "calendar_enabled"
         private const val KEY_MIGRATED_V1 = "migrated_v1"
     }

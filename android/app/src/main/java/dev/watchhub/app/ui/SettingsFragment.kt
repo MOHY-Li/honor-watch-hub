@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.watchhub.app.R
 import dev.watchhub.app.databinding.FragmentSettingsBinding
+import dev.watchhub.app.health.HealthAction
 import dev.watchhub.app.update.UpdateCheck
 import dev.watchhub.app.update.UpdateManifest
 import dev.watchhub.app.update.Updater
@@ -83,9 +84,9 @@ class SettingsFragment : Fragment() {
                 HubUi.setCalendarEnabled(ctx, false)
             }
         }
-        binding.cbMirror.setOnCheckedChangeListener { _, checked ->
-            if (updating) return@setOnCheckedChangeListener
-            HubUi.setMirrorConfirmed(ctx, checked)
+        binding.btnOpenMirror.setOnClickListener {
+            runCatching { HubUi.performAction(ctx, HealthAction.MIRROR_SETTINGS) }
+                .onFailure { toast("打开失败：" + (it.message ?: it.javaClass.simpleName)) }
         }
 
         binding.btnHealth.setOnClickListener {
@@ -123,7 +124,6 @@ class SettingsFragment : Fragment() {
         updating = true
         b.switchBoot.isChecked = snapshot.startOnBoot
         b.switchCalendar.isChecked = snapshot.calendarEnabled
-        b.cbMirror.isChecked = snapshot.mirrorConfirmed
         b.version.text = "WatchHub ${HubUi.versionName()} (${HubUi.versionCode()})"
         updating = false
     }
@@ -175,7 +175,6 @@ class SettingsFragment : Fragment() {
         if (checkingUpdate) return
         checkingUpdate = true
         toast(getString(R.string.update_checking))
-        val appCtx = requireContext().applicationContext
         Thread({
             val result = runCatching { HubUi.checkUpdate() }
             handler.post {

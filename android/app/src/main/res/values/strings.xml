@@ -23,8 +23,6 @@
     <string name="home_hub_title">中枢状态</string>
     <string name="home_hub_running">中枢运行中，任务到期会通过通知镜像到手表</string>
     <string name="home_hub_stopped">中枢已停止，任务不会触发提醒</string>
-    <string name="home_progress_title">今日完成进度</string>
-    <string name="home_progress_none">今天还没有任务</string>
     <string name="home_next_title">下一次提醒</string>
     <string name="home_next_none">暂时没有待触发的提醒</string>
     <string name="home_health_title">链路体检摘要</string>
@@ -34,7 +32,7 @@
 
     <!-- 任务 -->
     <string name="tasks_new">新建提醒</string>
-    <string name="tasks_reminder_header">提醒管理</string>
+    <string name="tasks_reminder_header">提醒规则</string>
     <string name="tasks_reminder_empty">还没有提醒，点上方「新建提醒」创建</string>
     <string name="task_done">完成</string>
     <string name="task_skip">跳过</string>
@@ -95,8 +93,6 @@
     <string name="settings_start_on_boot_desc">开机后自动启动中枢服务</string>
     <string name="settings_calendar">日历兜底</string>
     <string name="settings_calendar_desc">高优先级任务同时写入手机日历，手表可原生同步日历提醒</string>
-    <string name="settings_mirror">已确认手表镜像</string>
-    <string name="settings_mirror_desc">运动健康 → 设备 → 消息通知 → 勾选 WatchHub</string>
     <string name="settings_health">链路体检</string>
     <string name="settings_health_desc">检查权限、渠道、闹钟、服务、数据源</string>
     <string name="settings_logs">运行日志</string>
@@ -158,8 +154,6 @@
     <string name="subs_unknown_error">未知错误</string>
     <string name="subs_refresh">刷新订阅</string>
     <string name="subs_refreshed">已刷新订阅，新增 %1$d 条</string>
-    <string name="tasks_manage">提醒管理</string>
-    <string name="reminders_empty">还没有提醒规则，点上面「新建提醒」添加</string>
     <string name="subs_edit">编辑</string>
     <string name="settings_group_notify">通知与手表</string>
     <string name="settings_group_automation">自动化</string>
@@ -190,4 +184,11 @@
     <string name="task_edit_cron_preview_invalid">下次：表达式不合法</string>
     <string name="task_edit_save_failed">保存失败</string>
     <string name="home_sources_empty">还没有数据源</string>
+
+    <!-- 2.4.0 UI 收敛 -->
+    <string name="settings_open_mirror">打开荣耀运动健康</string>
+    <string name="settings_open_mirror_desc">运动健康 → 设备 → 消息通知 → 勾选 WatchHub</string>
+    <string name="settings_open_mirror_action">打开</string>
+    <string name="subs_recommended">推荐订阅</string>
+    <string name="subs_recommended_hint">点一下直接订阅；网络不可达时会提示失败</string>
 </resources>

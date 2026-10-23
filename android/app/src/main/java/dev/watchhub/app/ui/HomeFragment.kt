@@ -18,7 +18,7 @@ import dev.watchhub.app.R
 import dev.watchhub.app.databinding.FragmentHomeBinding
 import dev.watchhub.app.health.HealthLevel
 
-/** 首页：中枢开关、今日进度、下一次提醒、体检摘要、数据源状态列表。 */
+/** 首页：中枢开关、下一次提醒、体检摘要、数据源状态列表。 */
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
@@ -98,14 +98,6 @@ class HomeFragment : Fragment() {
             "中枢已开启，但服务心跳未更新（可能被系统杀了），点开关重启"
         } else {
             getString(R.string.home_hub_stopped)
-        }
-
-        val total = home.todayOpen + home.todayDone
-        b.todayProgress.progress = if (total > 0) home.todayDone * 100 / total else 0
-        b.todayText.text = if (total > 0) {
-            "已完成 ${home.todayDone} / ${total}，还剩 ${home.todayOpen} 条待办"
-        } else {
-            getString(R.string.home_progress_none)
         }
 
         b.nextTitle.text = home.nextTitle ?: getString(R.string.home_next_none)

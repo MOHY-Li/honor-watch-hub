@@ -7,6 +7,7 @@ import android.provider.Settings
 import dev.watchhub.app.App
 import dev.watchhub.app.Container
 import dev.watchhub.app.core.CronExpression
+import dev.watchhub.app.core.EscalationPolicy
 import dev.watchhub.app.core.LogBus
 import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.TtlCache
@@ -48,8 +49,6 @@ object HubUi {
     data class Home(
         val wantRun: Boolean,
         val running: Boolean,
-        val todayOpen: Int,
-        val todayDone: Int,
         val nextDueAt: Long?,
         val nextTitle: String?,
         val nextTimeText: String?,
@@ -88,6 +87,8 @@ object HubUi {
         val name: String,
         val title: String,
         val scheduleText: String,
+        /** 下一次触发的展示文案（暂停/待排期也会给出来）。 */
+        val nextText: String,
         val priorityText: String,
         val enabled: Boolean,
         val calendarSync: Boolean,
@@ -105,7 +106,6 @@ object HubUi {
     data class SettingsSnapshot(
         val startOnBoot: Boolean,
         val calendarEnabled: Boolean,
-        val mirrorConfirmed: Boolean,
         val wantRun: Boolean,
     )
 
@@ -135,11 +135,6 @@ object HubUi {
     fun home(ctx: Context): Home {
         val c = c(ctx)
         val now = c.clock.now()
-        val zone = ZoneId.systemDefault()
-        val date = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val stats = c.tasks.statsBetween(dayStart, dayEnd)
         val next = c.engine.nextDueAt()
         val nextTask = c.tasks.upcoming(1).firstOrNull()
         val health = health(ctx)
@@ -172,8 +167,6 @@ object HubUi {
         return Home(
             wantRun = c.settings.wantRun,
             running = isRunning(ctx),
-            todayOpen = stats.open,
-            todayDone = stats.done,
             nextDueAt = next,
             nextTitle = nextTask?.title,
             nextTimeText = nextTask?.let { formatWhen(it.effectiveDueAt) },
@@ -241,12 +234,36 @@ object HubUi {
                     ScheduleMode.INTERVAL -> "每 ${r.intervalMin} 分钟"
                     ScheduleMode.CRON -> "cron ${r.cron}"
                 },
+                nextText = nextTextFor(c, r.id, r.enabled),
                 priorityText = priorityText(r.priority),
                 enabled = r.enabled,
                 calendarSync = r.calendarSync,
             )
         }
     }
+
+    private fun nextTextFor(c: Container, reminderId: Long, enabled: Boolean): String {
+        if (!enabled) return "已暂停"
+        val latest = c.tasks.latestFor(reminderId) ?: return "待排期"
+        if (latest.status != TaskStatus.OPEN) return "待排期"
+        val at = if (latest.alertedAt == 0L) {
+            latest.effectiveDueAt
+        } else {
+            latest.alertedAt + EscalationPolicy.intervalFor(latest.escalationLevel) * 60_000L
+        }
+        return "下次 " + formatWhen(at)
+    }
+
+    /** 内置推荐订阅（AI 相关，已逐一验证可抓取）。 */
+    data class RecommendedFeed(val name: String, val url: String, val note: String)
+
+    fun recommendedFeeds(): List<RecommendedFeed> = listOf(
+        RecommendedFeed("量子位", "https://www.qbitai.com/feed", "中文 AI 资讯"),
+        RecommendedFeed("OpenAI News", "https://openai.com/news/rss.xml", "官方发布 · 英文"),
+        RecommendedFeed("Google DeepMind", "https://deepmind.google/blog/rss.xml", "研究博客 · 英文"),
+        RecommendedFeed("Hugging Face", "https://huggingface.co/blog/feed.xml", "模型与教程 · 英文"),
+        RecommendedFeed("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/", "行业新闻 · 英文"),
+    )
 
     fun reminderById(ctx: Context, id: Long): Reminder? = c(ctx).reminders.byId(id)
 
@@ -438,7 +455,6 @@ object HubUi {
         return SettingsSnapshot(
             startOnBoot = c.settings.startOnBoot,
             calendarEnabled = c.settings.calendarEnabled,
-            mirrorConfirmed = c.settings.mirrorConfirmed,
             wantRun = c.settings.wantRun,
         )
     }
@@ -542,10 +558,6 @@ object HubUi {
 
     fun setCalendarEnabled(ctx: Context, value: Boolean) {
         c(ctx).settings.calendarEnabled = value
-    }
-
-    fun setMirrorConfirmed(ctx: Context, value: Boolean) {
-        c(ctx).settings.mirrorConfirmed = value
     }
 
     /** 立即对齐一次（补任务、派发 outbox、排闹钟）。 */
