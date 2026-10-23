@@ -21,9 +21,16 @@ object ServicePolicy {
     /** 任务补齐（materialize）的最小间隔：1 小时。 */
     const val MATERIALIZE_INTERVAL_MS = 60 * 60_000L
 
-    /** 下一次到期在 [FAST_WINDOW_MS] 内（含已过期）就用快节奏，否则慢节奏。 */
-    fun tickIntervalMs(now: Long, nextDueAt: Long?): Long =
-        if (nextDueAt != null && nextDueAt - now <= FAST_WINDOW_MS) FAST_TICK_MS else SLOW_TICK_MS
+    /**
+     * 下一次到期在 [FAST_WINDOW_MS] 内（含已过期）或用快节奏；
+     * 升级链激活时也用快节奏——1 分钟级提醒需要更密集的 tick 才能及时派发。
+     */
+    fun tickIntervalMs(now: Long, nextDueAt: Long?, escalationActive: Boolean = false): Long =
+        if (escalationActive || (nextDueAt != null && nextDueAt - now <= FAST_WINDOW_MS)) {
+            FAST_TICK_MS
+        } else {
+            SLOW_TICK_MS
+        }
 
     /**
      * 是否该补任务。从未补过（last <= 0）或距上次超过 1 小时则补；

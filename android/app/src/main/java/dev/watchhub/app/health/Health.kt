@@ -27,6 +27,7 @@ enum class HealthAction {
     OPEN_APP_SETTINGS,
     CALENDAR_PERMISSION,
     MIRROR_SETTINGS,
+    FULL_SCREEN_INTENT,
 }
 
 data class HealthItem(
@@ -56,6 +57,7 @@ class Health(
         val out = ArrayList<HealthItem>()
         out.add(notificationPermission())
         out.add(channelImportance())
+        out.add(fullScreenIntent())
         out.add(exactAlarm())
         out.add(battery())
         out.add(serviceHeartbeat())
@@ -144,6 +146,22 @@ class Health(
             )
             NotificationHealthPolicy.ChannelState.HIGH -> HealthItem(
                 "channel", "提醒渠道", "高，可以响铃震动。", HealthLevel.OK,
+            )
+        }
+    }
+
+    private fun fullScreenIntent(): HealthItem {
+        if (Build.VERSION.SDK_INT < 34) {
+            return HealthItem("fullscreen", "确认窗口", "系统版本不需要额外权限", HealthLevel.OK)
+        }
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        return if (nm.canUseFullScreenIntent()) {
+            HealthItem("fullscreen", "确认窗口", "已允许锁屏弹出确认窗口", HealthLevel.OK)
+        } else {
+            HealthItem(
+                "fullscreen", "确认窗口",
+                "全屏确认窗口权限未授予，锁屏时可能只显示通知。点进去允许「全屏通知」。",
+                HealthLevel.WARN, HealthAction.FULL_SCREEN_INTENT,
             )
         }
     }

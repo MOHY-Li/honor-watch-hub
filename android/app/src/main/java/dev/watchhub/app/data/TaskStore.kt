@@ -6,6 +6,7 @@ import dev.watchhub.app.core.model.Priority
 import dev.watchhub.app.core.model.Reminder
 import dev.watchhub.app.core.model.Task
 import dev.watchhub.app.core.model.TaskStatus
+import dev.watchhub.app.core.model.ScheduleMode
 
 /**
  * 一次具体到期的任务。materialize 是幂等的（UNIQUE(reminder_id, due_at) + CONFLICT_IGNORE），
@@ -46,6 +47,83 @@ class TaskStore(private val db: Db) {
     }
 
     fun byId(id: Long): Task? = query("SELECT * FROM tasks WHERE id=?", arrayOf(id.toString())).firstOrNull()
+
+    /** 某条提醒最近的一个任务（任何状态），用于间隔/cron 模式串接下一次。 */
+    fun latestFor(reminderId: Long): Task? = query(
+        "SELECT * FROM tasks WHERE reminder_id=? ORDER BY due_at DESC, id DESC LIMIT 1",
+        arrayOf(reminderId.toString()),
+    ).firstOrNull()
+
+    /** 为间隔/cron 模式插入一个具体任务。返回新 id，冲突返回 null。 */
+    fun insertOccurrence(reminder: Reminder, dueAt: Long, now: Long): Long? {
+        val id = db.writableDatabase.insertWithOnConflict(
+            "tasks", null,
+            ContentValues().apply {
+                put("reminder_id", reminder.id)
+                put("title", reminder.title)
+                put("body", reminder.body)
+                put("priority", reminder.priority.name)
+                put("due_at", dueAt)
+                put("status", TaskStatus.OPEN.name)
+                put("created_at", now)
+                put("escalation_level", 0)
+                put("chain_started_at", 0)
+            },
+            SQLiteDatabase.CONFLICT_IGNORE,
+        )
+        return if (id == -1L) null else id
+    }
+
+    /** 首次提醒：记录 alertedAt 并开始升级链。 */
+    fun startChain(id: Long, now: Long) {
+        db.writableDatabase.execSQL(
+            "UPDATE tasks SET alerted_at=?, escalation_level=0, chain_started_at=?, status='OPEN' WHERE id=?",
+            arrayOf(now, now, id),
+        )
+    }
+
+    /** 升级链推进一档：更新最近提醒时间，level+1。 */
+    fun nudge(id: Long, now: Long) {
+        db.writableDatabase.execSQL(
+            "UPDATE tasks SET alerted_at=?, escalation_level=escalation_level+1 WHERE id=?",
+            arrayOf(now, id),
+        )
+    }
+
+    /** 跨天重置：延迟 [delayMs] 后作为一次新提醒重新开始（level 归零）。 */
+    fun resetToBase(id: Long, now: Long, delayMs: Long) {
+        db.writableDatabase.execSQL(
+            "UPDATE tasks SET status='OPEN', alerted_at=0, escalation_level=0, " +
+                "chain_started_at=0, snoozed_until=? WHERE id=?",
+            arrayOf(now + delayMs, id),
+        )
+    }
+
+    /**
+     * 升级链激活中的任务（已提醒过、未确认、未稍后）。
+     * 只统计间隔/cron 模式：固定时间模式提醒一次后不应常驻 fast tick。
+     */
+    fun openEscalating(): List<Task> = query(
+        "SELECT t.* FROM tasks t JOIN reminders r ON r.id = t.reminder_id " +
+            "WHERE t.status='OPEN' AND t.alerted_at>0 AND t.snoozed_until=0 " +
+            "AND r.mode <> '${ScheduleMode.TIMES.name}' ORDER BY t.alerted_at",
+    )
+
+    fun hasActiveEscalation(): Boolean = db.readableDatabase.rawQuery(
+        "SELECT 1 FROM tasks t JOIN reminders r ON r.id = t.reminder_id " +
+            "WHERE t.status='OPEN' AND t.alerted_at>0 AND t.snoozed_until=0 " +
+            "AND r.mode <> '${ScheduleMode.TIMES.name}' LIMIT 1",
+        null,
+    ).use { it.moveToFirst() }
+
+    /** 新的 occurrence 生效时，把同提醒更早的 OPEN 任务标为错过（含仍在升级链里的）。 */
+    fun markOlderOpenMissed(reminderId: Long, dueBefore: Long, exceptId: Long = 0L) {
+        db.writableDatabase.execSQL(
+            "UPDATE tasks SET status='MISSED' WHERE reminder_id=? AND status='OPEN' " +
+                "AND due_at < ? AND id <> ?",
+            arrayOf(reminderId, dueBefore, exceptId),
+        )
+    }
 
     fun open(): List<Task> = query("SELECT * FROM tasks WHERE status='OPEN' ORDER BY due_at")
 
@@ -90,8 +168,18 @@ class TaskStore(private val db: Db) {
     /** 稍后再说：清掉已提醒标记，并把实际到期时间推到 [until]。 */
     fun snooze(id: Long, until: Long) {
         db.writableDatabase.execSQL(
-            "UPDATE tasks SET status='OPEN', snoozed_until=?, alerted_at=0 WHERE id=?",
+            "UPDATE tasks SET status='OPEN', snoozed_until=?, alerted_at=0, " +
+                "escalation_level=0, chain_started_at=0 WHERE id=?",
             arrayOf(until, id),
+        )
+    }
+
+    /** 编辑提醒后清掉还没触发的旧任务，让引擎按新配置重新生成。 */
+    fun deleteFutureOpen(reminderId: Long, after: Long) {
+        db.writableDatabase.delete(
+            "tasks",
+            "reminder_id=? AND status='OPEN' AND due_at > ?",
+            arrayOf(reminderId.toString(), after.toString()),
         )
     }
 
@@ -122,7 +210,8 @@ class TaskStore(private val db: Db) {
     /** 需要写日历的任务：OPEN 且所属 reminder 打开了日历同步。 */
     fun openForCalendar(): List<Task> = query(
         "SELECT t.* FROM tasks t JOIN reminders r ON r.id = t.reminder_id " +
-            "WHERE t.status='OPEN' AND r.calendar=1 AND t.calendar_event_id=0 ORDER BY t.due_at",
+            "WHERE t.status='OPEN' AND r.calendar=1 AND r.mode='${ScheduleMode.TIMES.name}' " +
+            "AND t.calendar_event_id=0 ORDER BY t.due_at",
     )
 
     fun tasksWithCalendarEvent(): List<Task> = query(
@@ -166,6 +255,8 @@ class TaskStore(private val db: Db) {
         snoozedUntil = c.getLong(c.getColumnIndexOrThrow("snoozed_until")),
         doneAt = c.getLong(c.getColumnIndexOrThrow("done_at")),
         calendarEventId = c.getLong(c.getColumnIndexOrThrow("calendar_event_id")),
+        escalationLevel = c.getInt(c.getColumnIndexOrThrow("escalation_level")),
+        chainStartedAt = c.getLong(c.getColumnIndexOrThrow("chain_started_at")),
     )
 
     companion object {

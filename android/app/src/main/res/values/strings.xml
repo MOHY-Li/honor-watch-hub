@@ -167,4 +167,27 @@
     <string name="settings_group_about">关于</string>
     <string name="sources_title">源管理</string>
     <string name="subs_manage_sources">源管理</string>
+    <string name="nudge_complete">完成</string>
+    <string name="nudge_snooze">稍后 10 分钟</string>
+    <string name="nudge_skip">跳过这次</string>
+    <string name="nudge_watch_hint">手表上只能看，不能操作；确认请在手机上完成。</string>
+    <string name="nudge_no_body">这条提醒没有补充说明</string>
+
+    <!-- 2.3.0 调度方式与首页数据源状态 -->
+    <string name="task_edit_schedule">调度方式</string>
+    <string name="task_edit_mode_times">固定时间</string>
+    <string name="task_edit_mode_interval">固定间隔</string>
+    <string name="task_edit_mode_cron">cron 表达式</string>
+    <string name="task_edit_interval">间隔（分钟）</string>
+    <string name="task_edit_interval_hint">未确认会按 20/15/10/5/1 分钟加急，直到你在手机上确认</string>
+    <string name="task_edit_interval_required">间隔必须是 1–1440 之间的整数（分钟）</string>
+    <string name="task_edit_cron">cron 表达式</string>
+    <string name="task_edit_cron_required">请填写 cron 表达式</string>
+    <string name="task_edit_cron_invalid">cron 表达式不合法，请检查字段数量与取值范围（分 时 日 月 周）</string>
+    <string name="task_edit_cron_no_next">这个 cron 表达式一年内都不会触发，请检查日期字段</string>
+    <string name="task_edit_cron_next">下次：%1$s</string>
+    <string name="task_edit_cron_next_unknown">下次：—</string>
+    <string name="task_edit_cron_preview_invalid">下次：表达式不合法</string>
+    <string name="task_edit_save_failed">保存失败</string>
+    <string name="home_sources_empty">还没有数据源</string>
 </resources>

@@ -62,6 +62,18 @@ data class Alert(
 
 enum class TaskStatus { OPEN, DONE, SKIPPED, MISSED }
 
+/** 提醒的调度方式。TIMES 复用原有「星期 + 时间点」的 Recurrence。 */
+enum class ScheduleMode {
+    TIMES,
+    INTERVAL,
+    CRON;
+
+    companion object {
+        fun parse(v: String?): ScheduleMode =
+            entries.firstOrNull { it.name == v?.trim()?.uppercase() } ?: TIMES
+    }
+}
+
 /**
  * 一条具体到期的任务。
  *
@@ -77,10 +89,15 @@ data class Task(
     val priority: Priority = Priority.NORMAL,
     val status: TaskStatus = TaskStatus.OPEN,
     val createdAt: Long = 0,
+    /** 最近一次提醒的时间（首次提醒或最近一次 nudge）。 */
     val alertedAt: Long = 0,
     val snoozedUntil: Long = 0,
     val doneAt: Long = 0,
     val calendarEventId: Long = 0,
+    /** 升级链已经推进到第几档：0 = 首次提醒后还没 nudge。 */
+    val escalationLevel: Int = 0,
+    /** 升级链开始的本地时间戳；0 表示链未激活。 */
+    val chainStartedAt: Long = 0,
 ) {
     val effectiveDueAt: Long get() = if (snoozedUntil > 0) snoozedUntil else dueAt
 }
@@ -111,7 +128,13 @@ data class Reminder(
     val id: Long = 0,
     val body: String = "",
     val priority: Priority = Priority.NORMAL,
-    val recurrence: Recurrence,
+    /** mode=TIMES 时生效。 */
+    val recurrence: Recurrence = Recurrence(emptyList()),
     val enabled: Boolean = true,
     val calendarSync: Boolean = false,
+    val mode: ScheduleMode = ScheduleMode.TIMES,
+    /** mode=INTERVAL 时的基础间隔（分钟）。 */
+    val intervalMin: Int = 25,
+    /** mode=CRON 时的 5 段表达式。 */
+    val cron: String = "",
 )

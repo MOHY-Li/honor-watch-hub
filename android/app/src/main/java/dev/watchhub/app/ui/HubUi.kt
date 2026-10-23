@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.Settings
 import dev.watchhub.app.App
 import dev.watchhub.app.Container
+import dev.watchhub.app.core.CronExpression
 import dev.watchhub.app.core.LogBus
 import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.TtlCache
@@ -13,6 +14,7 @@ import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.Article
 import dev.watchhub.app.core.model.Priority
 import dev.watchhub.app.core.model.Reminder
+import dev.watchhub.app.core.model.ScheduleMode
 import dev.watchhub.app.core.model.Task
 import dev.watchhub.app.core.model.TaskStatus
 import dev.watchhub.app.health.Health
@@ -55,6 +57,16 @@ object HubUi {
         val healthWorst: HealthLevel,
         val sourcesOk: Int,
         val sourcesTotal: Int,
+        val sourceStates: List<SourceStatusRow>,
+    )
+
+    /** 首页数据源状态行（所有 kind）。 */
+    data class SourceStatusRow(
+        val name: String,
+        val kind: String,
+        val enabled: Boolean,
+        val statusText: String,
+        val level: HealthLevel,
     )
 
     data class TaskRow(
@@ -132,6 +144,30 @@ object HubUi {
         val nextTask = c.tasks.upcoming(1).firstOrNull()
         val health = health(ctx)
         val defs = c.sources.all()
+        val sourceStates = defs.map { def ->
+            val st = c.sources.stateOf(def.name)
+            val level = when {
+                !def.enabled -> HealthLevel.INFO
+                st.fails >= 3 -> HealthLevel.FAIL
+                st.lastError != null -> HealthLevel.WARN
+                st.lastOk > 0 -> HealthLevel.OK
+                else -> HealthLevel.INFO
+            }
+            val statusText = when {
+                !def.enabled -> "已停用"
+                st.lastError != null -> "失败 ${st.fails} 次：${st.lastError.take(60)}"
+                st.lastOk > 0 -> "正常 · ${ago(now - st.lastOk)}前"
+                else -> "等待首次检查"
+            }
+            SourceStatusRow(def.name, def.kind.wire, def.enabled, statusText, level)
+        }.sortedBy { row ->
+            when {
+                row.level == HealthLevel.FAIL -> 0
+                row.level == HealthLevel.WARN -> 1
+                row.enabled -> 2
+                else -> 3
+            }
+        }
         val ok = defs.count { c.sources.stateOf(it.name).let { s -> s.lastOk > 0 && s.lastError == null } }
         return Home(
             wantRun = c.settings.wantRun,
@@ -145,6 +181,7 @@ object HubUi {
             healthWorst = worst(health),
             sourcesOk = ok,
             sourcesTotal = defs.size,
+            sourceStates = sourceStates,
         )
     }
 
@@ -197,8 +234,13 @@ object HubUi {
                 id = r.id,
                 name = r.name,
                 title = r.title,
-                scheduleText = dev.watchhub.app.core.model.Recurrence.describeDays(r.recurrence.days) +
-                    " " + dev.watchhub.app.core.model.Recurrence.describeTimes(r.recurrence.times),
+                scheduleText = when (r.mode) {
+                    ScheduleMode.TIMES ->
+                        dev.watchhub.app.core.model.Recurrence.describeDays(r.recurrence.days) +
+                            " " + dev.watchhub.app.core.model.Recurrence.describeTimes(r.recurrence.times)
+                    ScheduleMode.INTERVAL -> "每 ${r.intervalMin} 分钟"
+                    ScheduleMode.CRON -> "cron ${r.cron}"
+                },
                 priorityText = priorityText(r.priority),
                 enabled = r.enabled,
                 calendarSync = r.calendarSync,
@@ -352,6 +394,19 @@ object HubUi {
         return (c.articles.totalCount() - before).coerceAtLeast(0)
     }
 
+    fun taskById(ctx: Context, id: Long): Task? = c(ctx).tasks.byId(id)
+
+    /** 5 段 cron 表达式是否合法（供编辑页保存前校验）。 */
+    fun isValidCron(expr: String): Boolean = CronExpression.parse(expr) != null
+
+    /** cron 表达式下一次触发的展示文案；非法表达式返回 null。 */
+    fun cronNextText(ctx: Context, expr: String): String? {
+        val now = c(ctx).clock.now()
+        val next = CronExpression.parse(expr)?.nextAfter(now, java.time.ZoneId.systemDefault())
+            ?: return null
+        return formatWhen(next)
+    }
+
     fun recentAlerts(ctx: Context, limit: Int = 100): List<Alert> = c(ctx).alerts.recent(limit)
 
     fun alertById(ctx: Context, id: Long): Alert? = c(ctx).alerts.byId(id)
@@ -452,6 +507,8 @@ object HubUi {
     fun saveReminder(ctx: Context, reminder: Reminder): Result<Long> = runCatching {
         val c = c(ctx)
         val id = c.reminders.upsert(reminder)
+        // 改了调度/时间后，旧的未来任务必须按新配置重排
+        c.tasks.deleteFutureOpen(id, c.clock.now())
         reconcileAsync(ctx)
         id
     }.recoverCatching { t ->
@@ -529,6 +586,17 @@ object HubUi {
         HealthAction.EXACT_ALARM -> {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 open(ctx, Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, packageUri(ctx)))
+            } else {
+                open(ctx, appDetailsIntent(ctx))
+            }
+            true
+        }
+        HealthAction.FULL_SCREEN_INTENT -> {
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                open(
+                    ctx,
+                    Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri(ctx)),
+                )
             } else {
                 open(ctx, appDetailsIntent(ctx))
             }

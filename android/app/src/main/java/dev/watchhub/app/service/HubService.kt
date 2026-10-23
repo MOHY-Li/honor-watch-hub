@@ -88,13 +88,17 @@ class HubService : Service() {
                     lastArmedTarget = next
                 }
 
-                // 只有真的要去抓源时才持锁，抓完立刻释放
+                // 升级链激活时持续保活（1 分钟级 nudge 需要 CPU 醒着）
+                val escalating = c.engine.hasActiveEscalation()
+                if (escalating) keepAwake(ESCALATION_WAKE_MS)
+
+                // 只有真的要去抓源时才持锁，抓完立刻释放（升级链期间保留到本轮结束）
                 if (c.poller.hasDueWork(started)) {
                     keepAwake(WAKE_ON_POLL_MS)
                     try {
                         c.poller.tick()
                     } finally {
-                        releaseWake()
+                        if (!escalating) releaseWake()
                     }
                 }
 
@@ -120,8 +124,10 @@ class HubService : Service() {
             } catch (t: Throwable) {
                 LogBus.post("中枢循环异常: ${t.javaClass.simpleName}: ${t.message}")
             }
-            // 有 2 分钟内到期任务用 20s，否则 60s；提醒准点性由 AlarmManager 保证
-            val interval = ServicePolicy.tickIntervalMs(c.clock.now(), c.engine.nextDueAt())
+            // 有 2 分钟内到期任务、或升级链激活时用 20s，否则 60s
+            val escalatingNow = c.engine.hasActiveEscalation()
+            if (!escalatingNow) releaseWake()
+            val interval = ServicePolicy.tickIntervalMs(c.clock.now(), c.engine.nextDueAt(), escalatingNow)
             val elapsed = c.clock.now() - started
             sleep((interval - elapsed).coerceAtLeast(1_000L))
         }
@@ -191,6 +197,7 @@ class HubService : Service() {
         const val ACTION_STOP = "dev.watchhub.app.STOP"
         private const val FOREGROUND_ID = 42
         private const val WAKE_ON_POLL_MS = 5 * 60_000L
+        private const val ESCALATION_WAKE_MS = 2 * 60_000L
         private const val MAINTENANCE_INTERVAL_MS = 3600_000L
         private const val CALENDAR_INTERVAL_MS = 15 * 60_000L
 

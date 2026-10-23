@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 提醒确认窗口：高优先级提醒用全屏意图亮屏弹出（Android 14+ 可能被收回，退化为通知） -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 任务到期用精确闹钟；未授权时降级为非精确并在体检页告警 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -54,6 +56,19 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:label="数据源" />
+
+        <activity
+            android:name=".ui.ReminderNudgeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.WatchHub" />
+
+        <receiver
+            android:name=".service.AlertActionReceiver"
+            android:exported="false" />
 
         <activity
             android:name=".ui.SourceListActivity"

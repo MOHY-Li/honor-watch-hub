@@ -71,6 +71,15 @@ Alert     一次送达：key + title + body + deliveryState(PENDING/DELIVERED/FA
 `times` 是本地时间点（`HH:mm`），`days` 是 ISO 星期（0=周一…6=周日，空=每天）。
 `Recurrence.nextAfter(now)` 用纯函数计算下一次到期，按本地时区解释，通过 `Clock` 注入，单测覆盖跨天/跨周/夏令时边界（安卓默认时区下不出现 DST 跳变也测）。
 
+### 调度与升级链（v2.3）
+
+- `ScheduleMode.TIMES` 沿用 Recurrence；`INTERVAL` 每 N 分钟；`CRON` 用 `CronExpression` 解析 5 段表达式。
+- 每次提醒写入 `Task.alertedAt`，并开始升级链（`escalationLevel=0`、`chainStartedAt=now`）。
+- 未确认：`alertedAt + EscalationPolicy.intervalFor(level)` 到点再提醒，level+1（20/15/10/5/1，之后 1 分钟）。
+- 确认（完成/跳过/稍后）结束链；间隔模式确认后从确认时间 + 基础间隔安排下一次。
+- 跨天重置链；cron 的下一次触发会自动插入并让旧链标记 MISSED。
+- 确认只来自手机端；手表无回执，这是平台事实不是实现取舍。
+
 ### 错过补偿
 
 服务重启或看门狗唤醒时 reconcile：

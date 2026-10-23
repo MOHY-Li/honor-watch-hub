@@ -71,37 +71,140 @@
                     android:minLines="2" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/layout_times"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:helperText="例如 09:00, 18:30"
-                android:hint="@string/task_edit_times">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_times"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text"
-                    android:maxLines="1" />
-            </com.google.android.material.textfield.TextInputLayout>
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="@string/task_edit_days"
+                android:text="@string/task_edit_schedule"
                 android:textAppearance="@style/TextAppearance.WatchHub.Section" />
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chip_days"
+            <RadioGroup
+                android:id="@+id/radio_mode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="4dp"
-                app:singleLine="false"
-                app:singleSelection="false" />
+                android:orientation="vertical">
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/rb_mode_times"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/task_edit_mode_times" />
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/rb_mode_interval"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/task_edit_mode_interval" />
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/rb_mode_cron"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/task_edit_mode_cron" />
+            </RadioGroup>
+
+            <LinearLayout
+                android:id="@+id/group_times"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_times"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:helperText="例如 09:00, 18:30"
+                    android:hint="@string/task_edit_times">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_times"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/task_edit_days"
+                    android:textAppearance="@style/TextAppearance.WatchHub.Section" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_days"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="4dp"
+                    app:singleLine="false"
+                    app:singleSelection="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/group_interval"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_interval"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/task_edit_interval">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_interval"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/task_edit_interval_hint"
+                    android:textAppearance="@style/TextAppearance.WatchHub.Caption" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/group_cron"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_cron"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:helperText="例如 */25 * * * *"
+                    android:hint="@string/task_edit_cron">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_cron"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="textNoSuggestions"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/cron_next"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textAppearance="@style/TextAppearance.WatchHub.Caption" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"

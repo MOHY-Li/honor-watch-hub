@@ -175,13 +175,12 @@
                     android:text="@string/home_sources_title"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
-                <TextView
-                    android:id="@+id/sources_text"
+                <LinearLayout
+                    android:id="@+id/sources_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

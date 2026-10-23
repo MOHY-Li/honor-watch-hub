@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import dev.watchhub.app.core.model.Priority
 import dev.watchhub.app.core.model.Recurrence
 import dev.watchhub.app.core.model.Reminder
+import dev.watchhub.app.core.model.ScheduleMode
 
 /** 重复提醒的定义。一次具体到期是 tasks 表里的 Task。 */
 class ReminderStore(private val db: Db) {
@@ -33,6 +34,9 @@ class ReminderStore(private val db: Db) {
             put("days", r.recurrence.days.sorted().joinToString(",") { (it.value - 1).toString() })
             put("enabled", if (r.enabled) 1 else 0)
             put("calendar", if (r.calendarSync) 1 else 0)
+            put("mode", r.mode.name)
+            put("interval_min", r.intervalMin)
+            put("cron", r.cron.trim())
         }
         return if (r.id == 0L) {
             db.writableDatabase.insertWithOnConflict("reminders", null, cv, SQLiteDatabase.CONFLICT_ABORT)
@@ -74,6 +78,9 @@ class ReminderStore(private val db: Db) {
                         recurrence = Recurrence.parse(times, days),
                         enabled = c.getInt(c.getColumnIndexOrThrow("enabled")) == 1,
                         calendarSync = c.getInt(c.getColumnIndexOrThrow("calendar")) == 1,
+                        mode = ScheduleMode.parse(c.getString(c.getColumnIndexOrThrow("mode"))),
+                        intervalMin = c.getInt(c.getColumnIndexOrThrow("interval_min")),
+                        cron = c.getString(c.getColumnIndexOrThrow("cron")),
                     )
                 )
             }

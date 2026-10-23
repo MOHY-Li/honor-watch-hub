@@ -16,7 +16,9 @@ import dev.watchhub.app.R
 import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.Priority
+import dev.watchhub.app.service.AlertActionReceiver
 import dev.watchhub.app.ui.MainActivity
+import dev.watchhub.app.ui.ReminderNudgeActivity
 
 /**
  * 唯一通知出口。
@@ -104,6 +106,25 @@ object Notifier {
             .setWhen(if (alert.at > 0) alert.at else System.currentTimeMillis())
             .setShowWhen(true)
 
+        // 提醒类通知：手机端可直接处理；手表镜像只会显示标题+正文，操作按钮不会上表
+        alert.taskId?.let { taskId ->
+            val tag = tagOf(alert)
+            builder.addAction(0, "完成", actionIntent(ctx, alert, tag, taskId, AlertActionReceiver.ACTION_COMPLETE, 1))
+            builder.addAction(0, "稍后 10 分钟", actionIntent(ctx, alert, tag, taskId, AlertActionReceiver.ACTION_SNOOZE, 2))
+            val nudge = Intent(ctx, ReminderNudgeActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(ReminderNudgeActivity.EXTRA_TASK_ID, taskId)
+            }
+            val fullScreen = PendingIntent.getActivity(
+                ctx,
+                alert.id.toInt().coerceAtLeast(1) + 10_000,
+                nudge,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            // 没有全屏意图权限时（Android 14+ 可能被收回），系统会退化为高优先级 heads-up
+            builder.setFullScreenIntent(fullScreen, true)
+        }
+
         NotificationManagerCompat.from(ctx).notify(tagOf(alert), alert.id.toInt(), builder.build())
     }
 
@@ -156,6 +177,25 @@ object Notifier {
             .build()
         NotificationManagerCompat.from(ctx).notify("wh:test", TEST_ID, n)
     }
+
+    private fun actionIntent(
+        ctx: Context,
+        alert: Alert,
+        tag: String,
+        taskId: Long,
+        action: String,
+        slot: Int,
+    ): PendingIntent = PendingIntent.getBroadcast(
+        ctx,
+        alert.id.toInt() * 10 + slot,
+        Intent(ctx, AlertActionReceiver::class.java).apply {
+            this.action = action
+            putExtra(AlertActionReceiver.EXTRA_TASK_ID, taskId)
+            putExtra(AlertActionReceiver.EXTRA_TAG, tag)
+            putExtra(AlertActionReceiver.EXTRA_ID, alert.id.toInt())
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     /** 同一来源/同一提醒用固定 tag 覆盖，避免连续更新把通知栏刷满。 */
     private fun tagOf(alert: Alert): String =

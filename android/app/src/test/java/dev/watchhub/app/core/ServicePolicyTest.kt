@@ -28,6 +28,13 @@ class ServicePolicyTest {
     }
 
     @Test
+    fun tickInterval_fastWhenEscalationActive() {
+        // 没有临近任务，但升级链激活时必须用快节奏
+        assertEquals(ServicePolicy.FAST_TICK_MS, ServicePolicy.tickIntervalMs(now, null, escalationActive = true))
+        assertEquals(ServicePolicy.FAST_TICK_MS, ServicePolicy.tickIntervalMs(now, now + 10 * 60_000, true))
+    }
+
+    @Test
     fun materialize_whenNeverRun() {
         assertEquals(true, ServicePolicy.shouldMaterialize(now, 0L))
     }

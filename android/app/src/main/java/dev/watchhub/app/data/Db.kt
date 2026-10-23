@@ -29,6 +29,9 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         } else if (oldVersion < 3) {
             createArticles(db)
         }
+        if (oldVersion < 4) {
+            migrateV3toV4(db)
+        }
     }
 
     private fun createAll(db: SQLiteDatabase) {
@@ -84,7 +87,10 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
                  times    TEXT NOT NULL DEFAULT '',
                  days     TEXT NOT NULL DEFAULT '',
                  enabled  INTEGER NOT NULL DEFAULT 1,
-                 calendar INTEGER NOT NULL DEFAULT 0
+                 calendar INTEGER NOT NULL DEFAULT 0,
+                 mode        TEXT NOT NULL DEFAULT 'TIMES',
+                 interval_min INTEGER NOT NULL DEFAULT 25,
+                 cron        TEXT NOT NULL DEFAULT ''
                )"""
         )
         db.execSQL(
@@ -100,7 +106,9 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
                  alerted_at       INTEGER NOT NULL DEFAULT 0,
                  snoozed_until    INTEGER NOT NULL DEFAULT 0,
                  done_at          INTEGER NOT NULL DEFAULT 0,
-                 calendar_event_id INTEGER NOT NULL DEFAULT 0
+                 calendar_event_id INTEGER NOT NULL DEFAULT 0,
+                 escalation_level INTEGER NOT NULL DEFAULT 0,
+                 chain_started_at INTEGER NOT NULL DEFAULT 0
                )"""
         )
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_unique ON tasks(reminder_id, due_at)")
@@ -128,6 +136,25 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(read_at, published_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source, published_at)")
+    }
+
+    /** v4：提醒支持间隔/cron 调度，任务增加升级链状态。 */
+    private fun migrateV3toV4(db: SQLiteDatabase) {
+        if (!hasColumn(db, "reminders", "mode")) {
+            db.execSQL("ALTER TABLE reminders ADD COLUMN mode TEXT NOT NULL DEFAULT 'TIMES'")
+        }
+        if (!hasColumn(db, "reminders", "interval_min")) {
+            db.execSQL("ALTER TABLE reminders ADD COLUMN interval_min INTEGER NOT NULL DEFAULT 25")
+        }
+        if (!hasColumn(db, "reminders", "cron")) {
+            db.execSQL("ALTER TABLE reminders ADD COLUMN cron TEXT NOT NULL DEFAULT ''")
+        }
+        if (!hasColumn(db, "tasks", "escalation_level")) {
+            db.execSQL("ALTER TABLE tasks ADD COLUMN escalation_level INTEGER NOT NULL DEFAULT 0")
+        }
+        if (!hasColumn(db, "tasks", "chain_started_at")) {
+            db.execSQL("ALTER TABLE tasks ADD COLUMN chain_started_at INTEGER NOT NULL DEFAULT 0")
+        }
     }
 
     private fun migrateV1toV2(db: SQLiteDatabase) {
@@ -173,6 +200,6 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
 
     companion object {
         private const val NAME = "watchhub.db"
-        const val VERSION = 3
+        const val VERSION = 4
     }
 }

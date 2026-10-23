@@ -1,18 +1,24 @@
 package dev.watchhub.app.ui
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.google.android.material.color.MaterialColors
 import dev.watchhub.app.R
 import dev.watchhub.app.databinding.FragmentHomeBinding
 import dev.watchhub.app.health.HealthLevel
 
-/** 首页：中枢开关、今日进度、下一次提醒、体检摘要、数据源健康数。 */
+/** 首页：中枢开关、今日进度、下一次提醒、体检摘要、数据源状态列表。 */
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
@@ -115,9 +121,70 @@ class HomeFragment : Fragment() {
             HealthLevel.INFO -> "暂无可判断项"
         }
         b.healthSummary.setTextColor(colorForLevel(worst))
-        b.sourcesText.text = getString(R.string.home_sources_value, home.sourcesOk, home.sourcesTotal)
+
+        renderSourceStates(home.sourceStates)
 
         updating = false
+    }
+
+    /** 数据源状态列表（后端已按异常置顶排序，这里直接渲染）。 */
+    private fun renderSourceStates(states: List<HubUi.SourceStatusRow>) {
+        val b = _binding ?: return
+        val ctx = requireContext()
+        b.sourcesContainer.removeAllViews()
+
+        if (states.isEmpty()) {
+            b.sourcesContainer.addView(TextView(ctx).apply {
+                text = getString(R.string.home_sources_empty)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                setTextColor(
+                    MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant),
+                )
+                setPadding(0, dp(8), 0, 0)
+            })
+            return
+        }
+
+        states.forEach { row ->
+            val color = sourceLevelColor(row.level, b.sourcesContainer)
+            val line = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(5), 0, dp(5))
+            }
+            line.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(10) }
+                background = ContextCompat.getDrawable(ctx, R.drawable.bg_dot)
+                backgroundTintList = ColorStateList.valueOf(color)
+            })
+            val texts = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            texts.addView(TextView(ctx).apply {
+                text = row.name
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            texts.addView(TextView(ctx).apply {
+                text = row.statusText
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(color)
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            line.addView(texts)
+            line.addView(TextView(ctx).apply {
+                text = row.kind.uppercase(java.util.Locale.ROOT)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelSmall)
+                setTextColor(
+                    MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant),
+                )
+                setPadding(dp(8), 0, 0, 0)
+            })
+            b.sourcesContainer.addView(line)
+        }
     }
 
     private fun colorForLevel(level: HealthLevel): Int = when (level) {
@@ -126,6 +193,18 @@ class HomeFragment : Fragment() {
         HealthLevel.FAIL -> requireContext().getColor(R.color.health_fail)
         HealthLevel.INFO -> requireContext().getColor(R.color.health_info)
     }
+
+    /** 数据源状态色：INFO 用灰色（主题 onSurfaceVariant），其余用健康色。 */
+    private fun sourceLevelColor(level: HealthLevel, anchor: View): Int = when (level) {
+        HealthLevel.OK -> requireContext().getColor(R.color.health_ok)
+        HealthLevel.WARN -> requireContext().getColor(R.color.health_warn)
+        HealthLevel.FAIL -> requireContext().getColor(R.color.health_fail)
+        HealthLevel.INFO -> MaterialColors.getColor(
+            anchor, com.google.android.material.R.attr.colorOnSurfaceVariant,
+        )
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun toast(text: String) {
         android.widget.Toast.makeText(requireContext(), text, android.widget.Toast.LENGTH_SHORT).show()
