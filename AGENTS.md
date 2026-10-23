@@ -86,7 +86,8 @@ delivery → store / core
 - 独立渠道 `watchhub_alerts`，请求 `IMPORTANCE_HIGH`；提醒渠道上绝不能 `setSilent(true)`。
   ROM 可能只提供「默认」档——体检按「未关闭 / 未调低」判定，不以必须为高为准（见 2.2.2 SPEC）。
 - 服务常驻通知用 MIN 渠道，避免被镜像。
-- 通知 ID 稳定（用 alert id），tag 稳定，覆盖而不是堆叠。
+- 通知身份是 (tag, id)：同一 tag 必须用**由 tag 派生的稳定 id**（`NotificationId.of(tag)`），
+  同来源的新通知才会替换旧的；只固定 tag 而 id 每次不同仍然会堆叠。
 - 提醒的「已处理」只能来自手机端（确认窗口 / 通知按钮 / App 内操作）；手表端没有回执，
   UI 不得暗示「在手表上点一下」。升级链状态由 `Task.escalationLevel` / `chainStartedAt` 维护。
 

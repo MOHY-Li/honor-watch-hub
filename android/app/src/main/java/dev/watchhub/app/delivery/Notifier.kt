@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dev.watchhub.app.R
+import dev.watchhub.app.core.NotificationId
 import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.Priority
@@ -78,9 +79,13 @@ object Notifier {
         ensureChannels(ctx)
         if (!canPost(ctx)) throw IllegalStateException("通知权限未授予或通知被关闭")
 
+        // 同一 tag 用稳定 id：同来源的新通知替换旧的，而不是堆叠
+        val tag = tagOf(alert)
+        val notifId = NotificationId.of(tag)
+
         val open = PendingIntent.getActivity(
             ctx,
-            alert.id.toInt().coerceAtLeast(0),
+            notifId,
             Intent(ctx, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(MainActivity.EXTRA_ALERT_ID, alert.id)
@@ -108,16 +113,15 @@ object Notifier {
 
         // 提醒类通知：手机端可直接处理；手表镜像只会显示标题+正文，操作按钮不会上表
         alert.taskId?.let { taskId ->
-            val tag = tagOf(alert)
-            builder.addAction(0, "完成", actionIntent(ctx, alert, tag, taskId, AlertActionReceiver.ACTION_COMPLETE, 1))
-            builder.addAction(0, "稍后 10 分钟", actionIntent(ctx, alert, tag, taskId, AlertActionReceiver.ACTION_SNOOZE, 2))
+            builder.addAction(0, "完成", actionIntent(ctx, notifId, tag, taskId, AlertActionReceiver.ACTION_COMPLETE, 1))
+            builder.addAction(0, "稍后 10 分钟", actionIntent(ctx, notifId, tag, taskId, AlertActionReceiver.ACTION_SNOOZE, 2))
             val nudge = Intent(ctx, ReminderNudgeActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(ReminderNudgeActivity.EXTRA_TASK_ID, taskId)
             }
             val fullScreen = PendingIntent.getActivity(
                 ctx,
-                alert.id.toInt().coerceAtLeast(1) + 10_000,
+                notifId + 10_000,
                 nudge,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -125,7 +129,7 @@ object Notifier {
             builder.setFullScreenIntent(fullScreen, true)
         }
 
-        NotificationManagerCompat.from(ctx).notify(tagOf(alert), alert.id.toInt(), builder.build())
+        NotificationManagerCompat.from(ctx).notify(tag, notifId, builder.build())
     }
 
     /** 服务常驻通知（MIN 渠道）。 */
@@ -180,19 +184,19 @@ object Notifier {
 
     private fun actionIntent(
         ctx: Context,
-        alert: Alert,
+        notifId: Int,
         tag: String,
         taskId: Long,
         action: String,
         slot: Int,
     ): PendingIntent = PendingIntent.getBroadcast(
         ctx,
-        alert.id.toInt() * 10 + slot,
+        notifId * 10 + slot,
         Intent(ctx, AlertActionReceiver::class.java).apply {
             this.action = action
             putExtra(AlertActionReceiver.EXTRA_TASK_ID, taskId)
             putExtra(AlertActionReceiver.EXTRA_TAG, tag)
-            putExtra(AlertActionReceiver.EXTRA_ID, alert.id.toInt())
+            putExtra(AlertActionReceiver.EXTRA_ID, notifId)
         },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
