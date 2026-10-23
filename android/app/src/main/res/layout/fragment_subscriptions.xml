@@ -23,6 +23,15 @@
             app:icon="@drawable/ic_add" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sources"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:contentDescription="@string/subs_manage_sources"
+            app:icon="@drawable/ic_sources" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_refresh"
             style="@style/Widget.Material3.Button.IconButton"
             android:layout_width="wrap_content"

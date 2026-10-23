@@ -5,7 +5,6 @@
     <!-- 底部导航 -->
     <string name="nav_home">首页</string>
     <string name="nav_tasks">任务</string>
-    <string name="nav_sources">源</string>
     <string name="nav_settings">设置</string>
 
     <!-- 通用 -->
@@ -166,4 +165,6 @@
     <string name="settings_group_automation">自动化</string>
     <string name="settings_group_diagnostics">诊断</string>
     <string name="settings_group_about">关于</string>
+    <string name="sources_title">源管理</string>
+    <string name="subs_manage_sources">源管理</string>
 </resources>

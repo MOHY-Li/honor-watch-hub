@@ -56,6 +56,11 @@
             android:label="数据源" />
 
         <activity
+            android:name=".ui.SourceListActivity"
+            android:exported="false"
+            android:label="源管理" />
+
+        <activity
             android:name=".ui.ReminderListActivity"
             android:exported="false"
             android:label="提醒管理" />

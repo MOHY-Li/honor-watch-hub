@@ -43,7 +43,9 @@ class MainActivity : AppCompatActivity() {
             switchTo(item.itemId)
             true
         }
-        val restored = savedInstanceState?.getInt(KEY_TAB, R.id.nav_home) ?: R.id.nav_home
+        // 从旧版本恢复的 id 可能已不在菜单里（2.2.1 删掉了 nav_sources），回退首页
+        val restoredRaw = savedInstanceState?.getInt(KEY_TAB, R.id.nav_home) ?: R.id.nav_home
+        val restored = if (binding.bottomNav.menu.findItem(restoredRaw) != null) restoredRaw else R.id.nav_home
         binding.bottomNav.selectedItemId = restored
         switchTo(restored)
 
@@ -85,7 +87,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun newFragmentFor(tabId: Int): Fragment = when (tabId) {
         R.id.nav_tasks -> TasksFragment()
-        R.id.nav_sources -> SourcesFragment()
         R.id.nav_subscriptions -> SubscriptionsFragment()
         R.id.nav_settings -> SettingsFragment()
         else -> HomeFragment()

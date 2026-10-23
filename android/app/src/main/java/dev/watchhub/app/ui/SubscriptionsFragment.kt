@@ -73,6 +73,9 @@ class SubscriptionsFragment : Fragment() {
 
         binding.btnAdd.setOnClickListener { showAddDialog() }
         binding.btnMarkAll.setOnClickListener { markAllRead() }
+        binding.btnSources.setOnClickListener {
+            startActivity(Intent(requireContext(), SourceListActivity::class.java))
+        }
         binding.btnRefresh.setOnClickListener { refreshSubscriptions() }
         binding.swUnread.setOnCheckedChangeListener { _, _ -> refreshArticles() }
         binding.chipSources.isSelectionRequired = true
