@@ -22,7 +22,7 @@ import dev.watchhub.app.ui.MainActivity
  * 唯一通知出口。
  *
  * 这是整条链路能不能上手表的关键：荣耀运动健康镜像的是手机通知栏，
- * 所以这里只能发最朴素的 title + text（约束见 AGENTS.md 第 4 条）。
+ * 所以这里只能发最朴素的 title + text（约束见 AGENTS.md §5）。
  * 任何自定义 RemoteViews / 大图 / 按钮都会被镜像丢掉。
  */
 object Notifier {
