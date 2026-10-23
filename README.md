@@ -200,6 +200,9 @@ Android 不允许静默装 APK，所以流程是标准的：
 DownloadManager 下载 → 校验 SHA-256 + 大小 → FileProvider → 系统安装器
 ```
 
+校验通过后**自动拉起系统安装器**，不再多一步「是否安装」确认；
+如果缺「安装未知应用」权限，会先跳系统授权页，授权后回到 App 自动重试安装。
+
 发布新版本：改 `versionCode`/`versionName` → `git tag v2.0.x` → push tag。
 CI 会跑单测 + lint → 构建签名 APK → 发 GitHub Release → 生成清单提交回 master。
 

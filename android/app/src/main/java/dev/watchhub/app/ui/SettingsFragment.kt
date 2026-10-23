@@ -98,6 +98,11 @@ class SettingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        if (pendingInstallRetry) {
+            pendingInstallRetry = false
+            // 用户从「安装未知应用」授权页回来，直接重试拉起安装器
+            installUpdate()
+        }
         refresh()
     }
 
@@ -216,7 +221,8 @@ class SettingsFragment : Fragment() {
                 handler.post {
                     if (!isAdded) return@post
                     if (ok) {
-                        showInstallDialog(message)
+                        toast("校验通过，正在打开安装器")
+                        installUpdate()
                     } else {
                         toast("下载失败：$message")
                     }
@@ -225,14 +231,8 @@ class SettingsFragment : Fragment() {
         }.onFailure { toast("下载失败：" + (it.message ?: it.javaClass.simpleName)) }
     }
 
-    private fun showInstallDialog(verifyMessage: String) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("下载完成")
-            .setMessage("$verifyMessage\n\n是否立即安装？")
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("安装") { _, _ -> installUpdate() }
-            .show()
-    }
+    /** 缺「安装未知应用」权限时置位：用户授权回到 App 后自动重试安装。 */
+    private var pendingInstallRetry = false
 
     private fun installUpdate() {
         val result = runCatching { HubUi.installUpdate(ctx) }.getOrElse {
@@ -240,9 +240,18 @@ class SettingsFragment : Fragment() {
             return
         }
         when (result) {
-            is Updater.InstallResult.Started -> toast("已拉起系统安装器")
-            is Updater.InstallResult.NeedPermission -> toast(result.why)
-            is Updater.InstallResult.Failed -> toast("安装失败：${result.reason}")
+            is Updater.InstallResult.Started -> {
+                pendingInstallRetry = false
+                toast("已拉起系统安装器")
+            }
+            is Updater.InstallResult.NeedPermission -> {
+                pendingInstallRetry = true
+                toast(result.why)
+            }
+            is Updater.InstallResult.Failed -> {
+                pendingInstallRetry = false
+                toast("安装失败：${result.reason}")
+            }
         }
     }
 
