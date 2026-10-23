@@ -28,8 +28,6 @@
     <string name="home_progress_none">今天还没有任务</string>
     <string name="home_next_title">下一次提醒</string>
     <string name="home_next_none">暂时没有待触发的提醒</string>
-    <string name="home_recent_title">最近推送</string>
-    <string name="home_recent_none">还没有推送记录</string>
     <string name="home_health_title">链路体检摘要</string>
     <string name="home_sources_title">数据源健康</string>
     <string name="home_sources_value">%1$d / %2$d 个源正常</string>
@@ -73,9 +71,9 @@
     <string name="day_sun">日</string>
 
     <!-- 源 -->
-    <string name="sources_new">新增数据源</string>
+    <string name="sources_new">添加规则</string>
     <string name="sources_edit_all">编辑全部 JSON</string>
-    <string name="sources_empty">还没有数据源。点「新增数据源」添加 RSS / JSON / 正则 / 指纹源。</string>
+    <string name="sources_empty">还没有抓取规则。点「添加规则」配置 RSS / JSON / 正则 / 网页指纹。</string>
     <string name="source_check_now">立即检查</string>
     <string name="source_checking">正在检查「%1$s」…</string>
     <string name="source_check_result">%1$s：%2$d 条新事件</string>
@@ -161,4 +159,11 @@
     <string name="subs_unknown_error">未知错误</string>
     <string name="subs_refresh">刷新订阅</string>
     <string name="subs_refreshed">已刷新订阅，新增 %1$d 条</string>
+    <string name="tasks_manage">提醒管理</string>
+    <string name="reminders_empty">还没有提醒规则，点上面「新建提醒」添加</string>
+    <string name="subs_edit">编辑</string>
+    <string name="settings_group_notify">通知与手表</string>
+    <string name="settings_group_automation">自动化</string>
+    <string name="settings_group_diagnostics">诊断</string>
+    <string name="settings_group_about">关于</string>
 </resources>

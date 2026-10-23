@@ -50,6 +50,12 @@ class SubscriptionsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         articleAdapter = ArticleAdapter { row -> openArticle(row) }
         subscriptionAdapter = SubscriptionAdapter(
+            onEdit = { row ->
+                startActivity(
+                    Intent(requireContext(), SourceEditActivity::class.java)
+                        .putExtra(SourceEditActivity.EXTRA_NAME, row.name),
+                )
+            },
             onToggle = { row, enabled ->
                 runCatching { HubUi.setSourceEnabled(ctx, row.name, enabled) }
                     .onFailure {

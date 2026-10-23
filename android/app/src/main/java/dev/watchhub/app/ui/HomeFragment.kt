@@ -8,17 +8,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.watchhub.app.R
-import dev.watchhub.app.core.model.Alert
-import dev.watchhub.app.core.model.DeliveryState
 import dev.watchhub.app.databinding.FragmentHomeBinding
 import dev.watchhub.app.health.HealthLevel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
-/** 首页：中枢开关、今日进度、下一次提醒、体检摘要、数据源健康数、最近推送。 */
+/** 首页：中枢开关、今日进度、下一次提醒、体检摘要、数据源健康数。 */
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
@@ -123,60 +117,8 @@ class HomeFragment : Fragment() {
         b.healthSummary.setTextColor(colorForLevel(worst))
         b.sourcesText.text = getString(R.string.home_sources_value, home.sourcesOk, home.sourcesTotal)
 
-        renderRecent(home.recentAlerts)
         updating = false
     }
-
-    private fun renderRecent(alerts: List<Alert>) {
-        val container = binding.recentContainer
-        container.removeAllViews()
-        if (alerts.isEmpty()) {
-            container.addView(captionView(getString(R.string.home_recent_none)))
-            return
-        }
-        alerts.forEach { alert ->
-            val title = android.widget.TextView(requireContext()).apply {
-                text = alert.title
-                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
-                setTextColor(com.google.android.material.color.MaterialColors.getColor(
-                    this, com.google.android.material.R.attr.colorOnSurface,
-                ))
-                setPadding(0, dp(6), 0, 0)
-                isClickable = true
-                setOnClickListener { showAlert(alert) }
-            }
-            container.addView(title)
-            val trailing = " · " + when (alert.state) {
-                DeliveryState.PENDING -> "待送达"
-                DeliveryState.DELIVERED -> "已送达"
-                DeliveryState.FAILED -> "送达失败"
-            }
-            container.addView(captionView(formatTime(alert.at) + trailing + if (alert.source.isNotBlank()) " · ${alert.source}" else ""))
-        }
-    }
-
-    private fun showAlert(alert: Alert) {
-        val lines = ArrayList<String>()
-        if (alert.body.isNotBlank()) lines.add(alert.body)
-        if (alert.detail.isNotBlank()) lines.add(alert.detail)
-        if (alert.source.isNotBlank()) lines.add("来源：${alert.source}")
-        if (alert.at > 0) lines.add("时间：" + formatTime(alert.at))
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(alert.title.ifBlank { getString(R.string.alert_detail_title) })
-            .setMessage(lines.joinToString("\n").ifBlank { "（无详情）" })
-            .setPositiveButton(R.string.close, null)
-            .show()
-    }
-
-    private fun captionView(text: String): android.widget.TextView =
-        android.widget.TextView(requireContext()).apply {
-            this.text = text
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
-            setTextColor(com.google.android.material.color.MaterialColors.getColor(
-                this, com.google.android.material.R.attr.colorOnSurfaceVariant,
-            ))
-            setPadding(0, dp(2), 0, 0)
-        }
 
     private fun colorForLevel(level: HealthLevel): Int = when (level) {
         HealthLevel.OK -> requireContext().getColor(R.color.health_ok)
@@ -184,15 +126,6 @@ class HomeFragment : Fragment() {
         HealthLevel.FAIL -> requireContext().getColor(R.color.health_fail)
         HealthLevel.INFO -> requireContext().getColor(R.color.health_info)
     }
-
-    private fun formatTime(ms: Long): String {
-        if (ms <= 0) return "--"
-        return Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
-    }
-
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
 
     private fun toast(text: String) {
         android.widget.Toast.makeText(requireContext(), text, android.widget.Toast.LENGTH_SHORT).show()

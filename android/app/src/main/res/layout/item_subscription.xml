@@ -65,6 +65,15 @@
                 android:textSize="13sp" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_edit"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:text="@string/subs_edit"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_delete"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"

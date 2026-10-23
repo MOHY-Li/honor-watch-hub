@@ -10,9 +10,10 @@ import dev.watchhub.app.R
 import dev.watchhub.app.databinding.ItemSubscriptionBinding
 import dev.watchhub.app.ui.HubUi
 
-/** 订阅源横向列表：未读数、状态、暂停/恢复、取消订阅。 */
+/** 订阅源横向列表：未读数、状态、编辑、暂停/恢复、取消订阅。 */
 class SubscriptionAdapter(
     private val onToggle: (HubUi.SubscriptionRow, Boolean) -> Unit,
+    private val onEdit: (HubUi.SubscriptionRow) -> Unit,
     private val onDelete: (HubUi.SubscriptionRow) -> Unit,
 ) : ListAdapter<HubUi.SubscriptionRow, SubscriptionAdapter.VH>(Diff) {
 
@@ -33,6 +34,7 @@ class SubscriptionAdapter(
                 if (row.enabled) R.string.subs_pause else R.string.subs_resume,
             )
             binding.btnToggle.setOnClickListener { onToggle(row, !row.enabled) }
+            binding.btnEdit.setOnClickListener { onEdit(row) }
             binding.btnDelete.setOnClickListener { onDelete(row) }
 
             binding.name.alpha = if (row.enabled) 1f else 0.5f
