@@ -16,6 +16,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # settings.gradle.kts 里的 aliyun 镜像是给本地国内构建提速的；
+      # 海外 runner 走它只会添乱（FastInfoset 拉取偶发 502 直接 fail），删掉走官方源。
+      - name: Strip aliyun mirrors on CI
+        run: |
+          sed -i '/maven.aliyun.com/d' android/settings.gradle.kts
+          cat android/settings.gradle.kts
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
