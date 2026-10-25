@@ -26,11 +26,13 @@ v1 的架构选型是对的（手机采集 + 通知镜像），但产品定义�
 ui/          Activity / Fragment / Adapter，只通过 HubUi 门面拿数据
 health/      链路体检（纯规则 + Android 探针）
 delivery/    Notifier（唯一通知出口）、Deliverer（outbox 派发）、CalendarSync
-engine/      Poller（源轮询）、ReminderEngine（任务生成/到期/补偿）、Scheduler（闹钟）、Migrator
-source/      rss / json / regex / hash 四种采集器
-store/       SQLite：alerts / seen / sources / source_state / reminders / tasks / articles / settings
+engine/      Poller（源轮询）、ReminderEngine（任务生成/到期/补偿）、Scheduler（闹钟）、Migrator、
+             HealthEngine（指标采样+阈值规则）、HealthAnalyst（AI 分析编排）
+source/      rss / json / regex / hash 四种采集器 + DeepSeekClient（AI 分析协议端）
+store/       SQLite：alerts / seen / sources / source_state / reminders / tasks / articles / settings /
+             metrics / health_rules / health_reports
 net/         极简 HTTP（GET/POST、headers、gzip、大小上限）
-core/        纯 Kotlin：模型、时间、重复规则、文本裁剪、日志
+core/        纯 Kotlin：模型、时间、重复规则、文本裁剪、日志、退避、健康规则判定
 ```
 
 依赖只允许向内：`ui → health/delivery/engine/store/core`，`source → net/core`。`core` 不依赖 Android。
@@ -41,11 +43,11 @@ core/        纯 Kotlin：模型、时间、重复规则、文本裁剪、日志
 
 | 页面 | 职责 | 不该做的事 |
 |---|---|---|
-| 首页 | 总览与总开关 | 不放历史列表（历史在订阅页/通知详情） |
-| 任务 | 提醒规则（内联显示/编辑）+ 任务执行（完成/跳过/稍后） | 不隐藏规则入口 |
+| 首页 | 总览与总开关 + 最新身体指标 + AI 分析入口 | 不放历史列表（历史在订阅页/通知详情） |
+| 任务 | 提醒规则 + 健康规则（内联显示/编辑）+ 任务执行（完成/跳过/稍后） | 不隐藏规则入口 |
 | 订阅 | RSS 阅读 + 添加订阅 + RSS 源管理 + 高级源入口 | 不重复实现规则编辑（复用源管理页） |
 | 源管理（二级页） | 高级监控源配置（json/regex/hash） | 不做阅读，不列 RSS（RSS 只在订阅页管理，避免双入口） |
-| 设置 | 配置 / 诊断 / 关于分组 | 不放无法验证的勾选项 |
+| 设置 | 配置（含 AI 分析）/ 诊断 / 关于分组 | 不放无法验证的勾选项 |
 
 ## 数据模型
 
@@ -60,6 +62,14 @@ Alert     一次送达：key + title + body + deliveryState(PENDING/DELIVERED/FA
 ```
 
 - **Feed 事件**（RSS/JSON/正则/指纹）跳过 Task 层，直接产生 Alert：它们没有「完成」语义。
+- **健康指标**（v2.5 新增 `metrics` 表）同样没有「完成」语义：`HealthEngine` 每 5 分钟采样
+  （读取端 `HealthMetricsReader`，荣耀 Health Kit 资格过审前为「未接入」占位），
+  `core/HealthRuleEngine` 纯函数判定「窗口内持续越限」→ 生成 `kind=HEALTH` 的 Alert。
+  判定带 15 分钟新鲜度门槛（手表摘掉不误报）与冷却期（持续异常不刷屏）。
+- **AI 分析**（`HealthAnalyst` + `source/DeepSeekClient`）：把最近 7 天指标的**聚合统计**
+  （不上传原始样本）发给 DeepSeek 生成「整体情况 + 建议」，报告存 `health_reports`（保 20 份）。
+  手动按钮 + 每周自动；分析在独立线程，失败不影响任何核心能力——它与 RSS 抓取同属
+  「数据源自身的网络访问」，不违反离线可用原则。
 - **Article** 是独立的阅读记录（v3 新增 `articles` 表）：同一个 feed 条目同时写 Alert 和 Article。
   Alert 负责「送到手表」，Article 负责「手机上回看 + 已读」。两者生命周期不同，不要合并。
   `UNIQUE(source, key)` 保证幂等。

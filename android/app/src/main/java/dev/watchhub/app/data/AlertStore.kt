@@ -55,6 +55,12 @@ class AlertStore(private val db: Db) {
 
     fun failedCount(): Int = count("state='FAILED'")
 
+    /** 某类自 since 起的条数（健康分析统计「本周规则触发次数」用）。 */
+    fun countSince(kind: String, since: Long): Int =
+        db.readableDatabase
+            .rawQuery("SELECT COUNT(*) FROM $TABLE WHERE kind=? AND at>=?", arrayOf(kind, since.toString()))
+            .use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
     fun totalCount(): Int = count(null)
 
     fun lastDeliveredAt(): Long = db.readableDatabase

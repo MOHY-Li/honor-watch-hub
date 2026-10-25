@@ -12,6 +12,7 @@ import android.database.sqlite.SQLiteOpenHelper
  *  - seen 原样保留（去重表跨版本可复用）
  *  - source_state 补一列 fails
  *  - 源配置从 SharedPreferences 迁移，见 engine/Migrator.kt
+ * v3：articles；v4：间隔/cron 调度 + 升级链；v5：健康指标（metrics / health_rules）
  */
 class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VERSION) {
 
@@ -31,6 +32,9 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         }
         if (oldVersion < 4) {
             migrateV3toV4(db)
+        }
+        if (oldVersion < 5) {
+            createHealthTables(db)
         }
     }
 
@@ -115,6 +119,7 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(status, due_at)")
         db.execSQL("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         createArticles(db)
+        createHealthTables(db)
     }
 
     /** v3：订阅页用的文章表（回应 RSS 订阅需求）。 */
@@ -136,6 +141,42 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(read_at, published_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source, published_at)")
+    }
+
+    /** v5：健康指标样本 + 阈值规则。纯新增表，不碰既有数据。 */
+    private fun createHealthTables(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS metrics (
+                 type  TEXT NOT NULL,
+                 value REAL NOT NULL,
+                 at    INTEGER NOT NULL
+               )"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(type, at)")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS health_rules (
+                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name          TEXT NOT NULL UNIQUE,
+                 metric        TEXT NOT NULL,
+                 op            TEXT NOT NULL DEFAULT 'ABOVE',
+                 threshold     REAL NOT NULL,
+                 sustained_min INTEGER NOT NULL DEFAULT 15,
+                 cooldown_min  INTEGER NOT NULL DEFAULT 60,
+                 priority      TEXT NOT NULL DEFAULT 'NORMAL',
+                 enabled       INTEGER NOT NULL DEFAULT 1,
+                 last_alert_at INTEGER NOT NULL DEFAULT 0
+               )"""
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS health_reports (
+                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                 created_at  INTEGER NOT NULL,
+                 window_days INTEGER NOT NULL DEFAULT 7,
+                 model       TEXT NOT NULL DEFAULT '',
+                 content     TEXT NOT NULL
+               )"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_reports_at ON health_reports(created_at)")
     }
 
     /** v4：提醒支持间隔/cron 调度，任务增加升级链状态。 */
@@ -200,6 +241,6 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, NAME, null, VE
 
     companion object {
         private const val NAME = "watchhub.db"
-        const val VERSION = 4
+        const val VERSION = 5
     }
 }

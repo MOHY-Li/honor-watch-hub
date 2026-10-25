@@ -89,6 +89,12 @@ class SettingsFragment : Fragment() {
                 .onFailure { toast("打开失败：" + (it.message ?: it.javaClass.simpleName)) }
         }
 
+        binding.btnAiKey.setOnClickListener { showApiKeyDialog() }
+        binding.switchAiAuto.setOnCheckedChangeListener { _, checked ->
+            if (updating) return@setOnCheckedChangeListener
+            HubUi.setAiAutoWeekly(ctx, checked)
+        }
+
         binding.btnHealth.setOnClickListener {
             startActivity(Intent(requireContext(), HealthActivity::class.java))
         }
@@ -124,9 +130,36 @@ class SettingsFragment : Fragment() {
         updating = true
         b.switchBoot.isChecked = snapshot.startOnBoot
         b.switchCalendar.isChecked = snapshot.calendarEnabled
+        b.switchAiAuto.isChecked = snapshot.aiAutoWeekly
+        b.btnAiKey.text = getString(
+            if (HubUi.aiApiKey(ctx).isEmpty()) R.string.settings_ai_key_empty else R.string.settings_ai_key_set,
+        )
         b.version.text = "WatchHub ${HubUi.versionName()} (${HubUi.versionCode()})"
         updating = false
     }
+
+    /** DeepSeek API Key 编辑：密码框，只存本机。 */
+    private fun showApiKeyDialog() {
+        val input = android.widget.EditText(requireContext()).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(HubUi.aiApiKey(ctx))
+            hint = "sk-..."
+            setPadding(dp(20), dp(12), dp(20), dp(8))
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_ai_key)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                HubUi.setAiApiKey(ctx, input.text?.toString().orEmpty())
+                toast(getString(R.string.settings_ai_key_saved))
+                refresh()
+            }
+            .show()
+    }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun hasCalendarPermission(): Boolean =
         ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_CALENDAR) ==

@@ -65,6 +65,21 @@ class SettingsStore(private val db: Db) {
         get() = getBool(KEY_MIGRATED_V1, false)
         set(v) = putBool(KEY_MIGRATED_V1, v)
 
+    /** DeepSeek API Key。只存本地 settings 表，绝不写日志/通知。 */
+    var aiApiKey: String
+        get() = getString(KEY_AI_API_KEY, "").orEmpty().trim()
+        set(v) = putString(KEY_AI_API_KEY, v.trim())
+
+    /** 是否每周自动做一次健康分析。 */
+    var aiAutoWeekly: Boolean
+        get() = getBool(KEY_AI_AUTO_WEEKLY, false)
+        set(v) = putBool(KEY_AI_AUTO_WEEKLY, v)
+
+    /** 上次健康分析完成时间。 */
+    var lastAiAnalysisAt: Long
+        get() = getLong(KEY_LAST_AI_ANALYSIS, 0)
+        set(v) = putLong(KEY_LAST_AI_ANALYSIS, v)
+
     companion object {
         private const val KEY_WANT_RUN = "want_run"
         private const val KEY_START_ON_BOOT = "start_on_boot"
@@ -72,5 +87,8 @@ class SettingsStore(private val db: Db) {
         private const val KEY_LAST_DELIVERED = "last_delivered_at"
         private const val KEY_CALENDAR_ENABLED = "calendar_enabled"
         private const val KEY_MIGRATED_V1 = "migrated_v1"
+        private const val KEY_AI_API_KEY = "ai_api_key"
+        private const val KEY_AI_AUTO_WEEKLY = "ai_auto_weekly"
+        private const val KEY_LAST_AI_ANALYSIS = "last_ai_analysis_at"
     }
 }

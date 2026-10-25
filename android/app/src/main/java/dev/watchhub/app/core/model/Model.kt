@@ -17,7 +17,7 @@ enum class Priority {
     val wire: String get() = name.lowercase()
 }
 
-enum class AlertKind { FEED, REMINDER, SYSTEM }
+enum class AlertKind { FEED, REMINDER, SYSTEM, HEALTH }
 
 enum class DeliveryState { PENDING, DELIVERED, FAILED }
 

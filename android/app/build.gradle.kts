@@ -12,8 +12,8 @@ android {
         minSdk = 24
         targetSdk = 34
         // versionCode 必须单调递增，自更新靠它比较新旧
-        versionCode = 20402
-        versionName = "2.4.2"
+        versionCode = 20500
+        versionName = "2.5.0"
 
         // 自更新清单地址（CI 发布时覆盖 dist/latest.json）
         buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json\"")

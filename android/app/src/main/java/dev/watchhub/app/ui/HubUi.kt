@@ -9,13 +9,17 @@ import dev.watchhub.app.Container
 import dev.watchhub.app.core.Backoff
 import dev.watchhub.app.core.CronExpression
 import dev.watchhub.app.core.EscalationPolicy
+import dev.watchhub.app.core.HealthRuleEngine
 import dev.watchhub.app.core.LogBus
 import dev.watchhub.app.core.Text
 import dev.watchhub.app.core.TtlCache
 import dev.watchhub.app.core.model.Alert
 import dev.watchhub.app.core.model.Article
+import dev.watchhub.app.core.model.HealthReport
+import dev.watchhub.app.core.model.HealthRule
 import dev.watchhub.app.core.model.Priority
 import dev.watchhub.app.core.model.Reminder
+import dev.watchhub.app.core.model.RuleOp
 import dev.watchhub.app.core.model.ScheduleMode
 import dev.watchhub.app.core.model.Task
 import dev.watchhub.app.core.model.TaskStatus
@@ -58,6 +62,27 @@ object HubUi {
         val sourcesOk: Int,
         val sourcesTotal: Int,
         val sourceStates: List<SourceStatusRow>,
+        /** 最新身体指标（每类一条）；未接入 Health Kit 时为空。 */
+        val metricRows: List<MetricRow>,
+        /** 健康数据源状态文案（未接入原因 / 等待采样），正常时为空串。 */
+        val healthStatusText: String,
+    )
+
+    /** 首页指标行。 */
+    data class MetricRow(
+        val label: String,
+        val valueText: String,
+        val timeText: String,
+        val stale: Boolean,
+    )
+
+    /** 任务页「健康规则」区块的一行。 */
+    data class HealthRuleRow(
+        val id: Long,
+        val name: String,
+        val summaryText: String,
+        val priorityText: String,
+        val enabled: Boolean,
     )
 
     /** 首页数据源状态行（所有 kind）。 */
@@ -108,6 +133,7 @@ object HubUi {
         val startOnBoot: Boolean,
         val calendarEnabled: Boolean,
         val wantRun: Boolean,
+        val aiAutoWeekly: Boolean,
     )
 
     /** 订阅页的订阅源一行。 */
@@ -165,6 +191,20 @@ object HubUi {
             }
         }
         val ok = defs.count { c.sources.stateOf(it.name).let { s -> s.lastOk > 0 && s.lastError == null } }
+        val healthStatus = c.health.status()
+        val metricRows = c.metricStore.latestEach().map { (type, s) ->
+            MetricRow(
+                label = type.label,
+                valueText = HealthRuleEngine.formatValue(s.value) + type.unit,
+                timeText = ago(now - s.at) + "前",
+                stale = now - s.at > HealthRuleEngine.FRESH_MS,
+            )
+        }.sortedBy { it.label }
+        val healthStatusText = when {
+            !healthStatus.available -> healthStatus.reason
+            metricRows.isEmpty() -> "已接入，等待首次采样"
+            else -> ""
+        }
         return Home(
             wantRun = c.settings.wantRun,
             running = isRunning(ctx),
@@ -176,6 +216,8 @@ object HubUi {
             sourcesOk = ok,
             sourcesTotal = defs.size,
             sourceStates = sourceStates,
+            metricRows = metricRows,
+            healthStatusText = healthStatusText,
         )
     }
 
@@ -271,6 +313,67 @@ object HubUi {
     )
 
     fun reminderById(ctx: Context, id: Long): Reminder? = c(ctx).reminders.byId(id)
+
+    // ---------------- 健康规则与 AI 分析 ----------------
+
+    fun healthRuleById(ctx: Context, id: Long): HealthRule? = c(ctx).healthRules.byId(id)
+
+    fun healthRuleRows(ctx: Context): List<HealthRuleRow> = c(ctx).healthRules.all().map { r ->
+        val dir = if (r.op == RuleOp.ABOVE) "高于" else "低于"
+        HealthRuleRow(
+            id = r.id,
+            name = r.name,
+            summaryText = "${r.metric.label} $dir ${HealthRuleEngine.formatValue(r.threshold)}${r.metric.unit}" +
+                " · 持续${r.sustainedMin}分钟 · 冷却${r.cooldownMin}分钟",
+            priorityText = priorityText(r.priority),
+            enabled = r.enabled,
+        )
+    }
+
+    /** 保存健康规则。阈值范围/时长校验在这里做，UI 直接弹 message。 */
+    fun saveHealthRule(ctx: Context, rule: HealthRule): Result<Long> = runCatching {
+        val c = c(ctx)
+        if (!rule.metric.isValid(rule.threshold)) {
+            throw IllegalArgumentException(
+                "阈值不在${rule.metric.label}合理范围" +
+                    "（${HealthRuleEngine.formatValue(rule.metric.min)}~${HealthRuleEngine.formatValue(rule.metric.max)}${rule.metric.unit}）",
+            )
+        }
+        if (rule.sustainedMin < 1 || rule.cooldownMin < 1) {
+            throw IllegalArgumentException("持续时长与冷却时间至少 1 分钟")
+        }
+        c.healthRules.upsert(rule)
+    }.recoverCatching { t ->
+        throw IllegalArgumentException(
+            if (t.message?.contains("UNIQUE", true) == true) "规则名字已被占用" else t.message ?: "保存失败",
+        )
+    }
+
+    fun setHealthRuleEnabled(ctx: Context, id: Long, enabled: Boolean) {
+        c(ctx).healthRules.setEnabled(id, enabled)
+    }
+
+    fun deleteHealthRule(ctx: Context, id: Long) {
+        c(ctx).healthRules.delete(id)
+        LogBus.post("已删除健康规则 #$id")
+    }
+
+    /** 阻塞网络（模型生成可能要 1~2 分钟），必须在后台线程调用。 */
+    fun analyzeNow(ctx: Context): Result<HealthReport> = c(ctx).analyst.analyze()
+
+    /** 报告列表行（倒序，最新在前）。 */
+    data class ReportRow(val id: Long, val timeText: String, val preview: String)
+
+    fun reportRows(ctx: Context): List<ReportRow> = c(ctx).healthReports.recent().map { r ->
+        ReportRow(
+            id = r.id,
+            timeText = formatWhen(r.createdAt),
+            preview = r.content.lineSequence().firstOrNull().orEmpty().take(60),
+        )
+    }
+
+    fun reportById(ctx: Context, id: Long): HealthReport? =
+        c(ctx).healthReports.recent().firstOrNull { it.id == id }
 
     fun sourceRows(ctx: Context): List<SourceRow> {
         val c = c(ctx)
@@ -476,8 +579,22 @@ object HubUi {
 
     fun health(ctx: Context): List<HealthItem> {
         val c = c(ctx)
-        return healthCache.get(c.clock.now()) {
+        val base = healthCache.get(c.clock.now()) {
             Health(c.ctx, c.settings, c.alerts, c.sources, c.clock).check()
+        }
+        // 健康数据源状态随采样变化，不进 30s 缓存
+        return base + healthDataSourceItem(c)
+    }
+
+    private fun healthDataSourceItem(c: Container): HealthItem {
+        val st = c.health.status()
+        return when {
+            !st.available -> HealthItem("health_kit", "健康数据源", st.reason, HealthLevel.INFO)
+            st.lastSampleAt == 0L -> HealthItem("health_kit", "健康数据源", "已接入，等待首次采样", HealthLevel.INFO)
+            else -> HealthItem(
+                "health_kit", "健康数据源",
+                "已接入，最新样本 ${ago(c.clock.now() - st.lastSampleAt)}前", HealthLevel.OK,
+            )
         }
     }
 
@@ -490,6 +607,7 @@ object HubUi {
             startOnBoot = c.settings.startOnBoot,
             calendarEnabled = c.settings.calendarEnabled,
             wantRun = c.settings.wantRun,
+            aiAutoWeekly = c.settings.aiAutoWeekly,
         )
     }
 
@@ -592,6 +710,16 @@ object HubUi {
 
     fun setCalendarEnabled(ctx: Context, value: Boolean) {
         c(ctx).settings.calendarEnabled = value
+    }
+
+    fun aiApiKey(ctx: Context): String = c(ctx).settings.aiApiKey
+
+    fun setAiApiKey(ctx: Context, key: String) {
+        c(ctx).settings.aiApiKey = key
+    }
+
+    fun setAiAutoWeekly(ctx: Context, value: Boolean) {
+        c(ctx).settings.aiAutoWeekly = value
     }
 
     /** 立即对齐一次（补任务、派发 outbox、排闹钟）。 */

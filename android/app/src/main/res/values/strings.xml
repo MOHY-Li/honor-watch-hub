@@ -88,6 +88,31 @@
     <string name="source_edit_name_missing">JSON 里必须有非空的 name 字段</string>
     <string name="source_edit_name_duplicate">源名称「%1$s」已存在</string>
 
+    <!-- 健康指标与规则 -->
+    <string name="health_metrics_title">身体指标</string>
+    <string name="health_metrics_empty">还没有指标数据（Health Kit 接入后自动出现）</string>
+    <string name="health_ai_analyze">AI 分析</string>
+    <string name="health_reports">分析报告 ›</string>
+    <string name="health_reports_empty">还没有分析报告，点「AI 分析」生成一份</string>
+    <string name="ai_analyzing">正在分析，模型生成约需 1~2 分钟…</string>
+    <string name="ai_report_title">健康分析报告 · %1$s</string>
+    <string name="tasks_health_rules_header">健康规则</string>
+    <string name="tasks_health_rules_empty">还没有健康规则。例如：心率高于 100 持续 30 分钟就提醒。</string>
+    <string name="health_rule_new_entry">＋ 新建健康规则</string>
+    <string name="health_rule_new">新建健康规则</string>
+    <string name="health_rule_edit">编辑健康规则</string>
+    <string name="health_rule_name">规则名（如：心率过高）</string>
+    <string name="health_rule_metric">指标</string>
+    <string name="health_rule_op">条件</string>
+    <string name="health_rule_op_above">高于</string>
+    <string name="health_rule_op_below">低于</string>
+    <string name="health_rule_threshold">阈值</string>
+    <string name="health_rule_threshold_range">需在 %1$s ~ %2$s %3$s 之间</string>
+    <string name="health_rule_sustained">持续时长（分钟）</string>
+    <string name="health_rule_cooldown">告警冷却（分钟）</string>
+    <string name="health_rule_priority">优先级</string>
+    <string name="health_rule_delete_confirm">删除健康规则「%1$s」？</string>
+
     <!-- 设置 -->
     <string name="settings_start_on_boot">开机自启</string>
     <string name="settings_start_on_boot_desc">开机后自动启动中枢服务</string>
@@ -157,7 +182,15 @@
     <string name="settings_group_notify">通知与手表</string>
     <string name="settings_group_automation">自动化</string>
     <string name="settings_group_diagnostics">诊断</string>
+    <string name="settings_group_ai">AI 分析</string>
     <string name="settings_group_about">关于</string>
+    <string name="settings_ai_key">DeepSeek API Key</string>
+    <string name="settings_ai_key_desc">健康分析调用 DeepSeek；Key 只存本机，不会上传到别处</string>
+    <string name="settings_ai_key_empty">未设置</string>
+    <string name="settings_ai_key_set">已设置</string>
+    <string name="settings_ai_key_saved">API Key 已保存</string>
+    <string name="settings_ai_auto">每周自动分析</string>
+    <string name="settings_ai_auto_desc">每 7 天用最近一周指标生成报告并存档，完成后发通知</string>
     <string name="sources_title">源管理</string>
     <string name="subs_manage_sources">源管理</string>
     <string name="nudge_complete">完成</string>

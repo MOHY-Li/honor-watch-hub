@@ -25,6 +25,7 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
     private val handler = Handler(Looper.getMainLooper())
     private var updating = false
+    private var analyzing = false
     private val ticker = object : Runnable {
         override fun run() {
             refresh()
@@ -51,6 +52,8 @@ class HomeFragment : Fragment() {
         binding.healthCard.setOnClickListener {
             startActivity(Intent(requireContext(), HealthActivity::class.java))
         }
+        binding.btnAi.setOnClickListener { runAnalysis() }
+        binding.btnReports.setOnClickListener { showReports() }
     }
 
     override fun onResume() {
@@ -115,8 +118,119 @@ class HomeFragment : Fragment() {
         b.healthSummary.setTextColor(colorForLevel(worst))
 
         renderSourceStates(home.sourceStates)
+        renderMetrics(home)
 
         updating = false
+    }
+
+    /** 身体指标卡：最新值 + 时间；未接入时显示状态文案。 */
+    private fun renderMetrics(home: HubUi.Home) {
+        val b = _binding ?: return
+        val ctx = requireContext()
+        b.metricsContainer.removeAllViews()
+
+        if (home.healthStatusText.isNotEmpty()) {
+            b.metricsStatus.text = home.healthStatusText
+            b.metricsStatus.visibility = View.VISIBLE
+        } else {
+            b.metricsStatus.visibility = View.GONE
+        }
+
+        if (home.metricRows.isEmpty() && home.healthStatusText.isEmpty()) {
+            b.metricsStatus.text = getString(R.string.health_metrics_empty)
+            b.metricsStatus.visibility = View.VISIBLE
+        }
+
+        home.metricRows.forEach { row ->
+            val line = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(4), 0, dp(4))
+            }
+            line.addView(TextView(ctx).apply {
+                text = row.label
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            line.addView(TextView(ctx).apply {
+                text = row.valueText
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            })
+            line.addView(TextView(ctx).apply {
+                text = row.timeText
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(
+                    if (row.stale) {
+                        requireContext().getColor(R.color.health_warn)
+                    } else {
+                        MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                    },
+                )
+                setPadding(dp(8), 0, 0, 0)
+            })
+            b.metricsContainer.addView(line)
+        }
+    }
+
+    /** 手动 AI 分析：后台线程跑（模型生成最长约 2 分钟），完成弹报告。 */
+    private fun runAnalysis() {
+        if (analyzing) return
+        analyzing = true
+        toast(getString(R.string.ai_analyzing))
+        val appCtx = requireContext().applicationContext
+        Thread({
+            val result = HubUi.analyzeNow(appCtx)
+            handler.post {
+                analyzing = false
+                if (!isAdded) return@post
+                result
+                    .onSuccess { report -> showReport(report.createdAt, report.content) }
+                    .onFailure {
+                        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                            .setTitle(R.string.subs_add_failed_title)
+                            .setMessage(it.message ?: "分析失败")
+                            .setPositiveButton(R.string.ok, null)
+                            .show()
+                    }
+            }
+        }, "watchhub-ai-manual").start()
+    }
+
+    private fun showReports() {
+        val rows = runCatching { HubUi.reportRows(requireContext().applicationContext) }
+            .getOrElse { emptyList() }
+        if (rows.isEmpty()) {
+            toast(getString(R.string.health_reports_empty))
+            return
+        }
+        val labels = rows.map { "${it.timeText} · ${it.preview}" }.toTypedArray()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.health_reports)
+            .setItems(labels) { _, which ->
+                val id = rows[which].id
+                val appCtx = requireContext().applicationContext
+                HubUi.reportById(appCtx, id)?.let { showReport(it.createdAt, it.content) }
+            }
+            .setNegativeButton(R.string.close, null)
+            .show()
+    }
+
+    private fun showReport(createdAt: Long, content: String) {
+        if (!isAdded) return
+        val time = java.time.Instant.ofEpochMilli(createdAt)
+            .atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        val view = TextView(requireContext()).apply {
+            text = content
+            setPadding(dp(20), dp(16), dp(20), dp(8))
+            setTextIsSelectable(true)
+        }
+        val scroll = android.widget.ScrollView(requireContext()).apply { addView(view) }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.ai_report_title, time))
+            .setView(scroll)
+            .setPositiveButton(R.string.close, null)
+            .show()
     }
 
     /** 数据源状态列表（后端已按异常置顶排序，这里直接渲染）。 */

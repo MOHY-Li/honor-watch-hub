@@ -102,6 +102,10 @@ class HubService : Service() {
                     }
                 }
 
+                // 健康指标：采样节流在引擎内部（5 分钟），评估是本地读，代价可忽略
+                runCatching { c.health.tick(started) }
+                    .onFailure { LogBus.post("健康规则处理失败: ${it.message}") }
+
                 if (started - lastCalendar > CALENDAR_INTERVAL_MS) {
                     runCatching { c.calendar.sync() }
                         .onFailure { LogBus.post("日历同步失败: ${it.message}") }
@@ -112,6 +116,9 @@ class HubService : Service() {
                     runCatching { c.alerts.prune() }
                     runCatching { c.tasks.pruneObsolete(started) }
                     runCatching { c.articles.prune(started) }
+                    runCatching { c.health.prune(started) }
+                    // 每周自动 AI 分析：条件不满足立即返回；分析在独立线程，不阻塞心跳
+                    runCatching { c.analyst.maybeAutoAnalyze(started) }
                     lastMaintenance = started
                 }
 
