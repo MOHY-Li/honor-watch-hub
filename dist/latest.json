@@ -1,10 +1,10 @@
 {
-  "versionCode": 20402,
-  "versionName": "2.4.2",
-  "apkUrl": "https://github.com/MOHY-Li/honor-watch-hub/releases/download/v2.4.2/WatchHub.apk",
-  "sha256": "eb2306b8a266c27a24f6c1fb2b8b5aa32604ff2725c7cc8017624f5dc3ff8bb7",
-  "sizeBytes": 5535301,
-  "changelog": "WatchHub 2.4.2",
+  "versionCode": 20500,
+  "versionName": "2.5.0",
+  "apkUrl": "https://github.com/MOHY-Li/honor-watch-hub/releases/download/v2.5.0/WatchHub.apk",
+  "sha256": "7f5f28d9c39a12423fefc101ea322ff95866043f177e9bef2a8d7b6dedde685d",
+  "sizeBytes": 5583562,
+  "changelog": "WatchHub 2.5.0",
   "minSdk": 24,
-  "publishedAt": "2026-10-25T12:31:59+00:00"
+  "publishedAt": "2026-10-25T13:10:23+00:00"
 }
