@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.Settings
 import dev.watchhub.app.App
 import dev.watchhub.app.Container
+import dev.watchhub.app.core.Backoff
 import dev.watchhub.app.core.CronExpression
 import dev.watchhub.app.core.EscalationPolicy
 import dev.watchhub.app.core.LogBus
@@ -150,7 +151,7 @@ object HubUi {
             }
             val statusText = when {
                 !def.enabled -> "已停用"
-                st.lastError != null -> "失败 ${st.fails} 次：${st.lastError.take(60)}"
+                st.lastError != null -> "失败 ${st.fails} 次：${st.lastError.take(60)}" + backoffNote(def, st.fails)
                 st.lastOk > 0 -> "正常 · ${ago(now - st.lastOk)}前"
                 else -> "等待首次检查"
             }
@@ -254,15 +255,19 @@ object HubUi {
         return "下次 " + formatWhen(at)
     }
 
-    /** 内置推荐订阅（AI 相关，已逐一验证可抓取）。 */
+    /**
+     * 内置推荐订阅。只放国内直连可达、实测返回合法 RSS/Atom 的源
+     * （2026-10-24 逐一 curl 验证；机器之心/36kr 的 RSS 已退化为 HTML，虎嗅超时，均排除）。
+     * 海外源（OpenAI/DeepMind 等）在无代理网络下永久失败，不放推荐，仍可手动添加。
+     */
     data class RecommendedFeed(val name: String, val url: String, val note: String)
 
     fun recommendedFeeds(): List<RecommendedFeed> = listOf(
         RecommendedFeed("量子位", "https://www.qbitai.com/feed", "中文 AI 资讯"),
-        RecommendedFeed("OpenAI News", "https://openai.com/news/rss.xml", "官方发布 · 英文"),
-        RecommendedFeed("Google DeepMind", "https://deepmind.google/blog/rss.xml", "研究博客 · 英文"),
-        RecommendedFeed("Hugging Face", "https://huggingface.co/blog/feed.xml", "模型与教程 · 英文"),
-        RecommendedFeed("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/", "行业新闻 · 英文"),
+        RecommendedFeed("少数派", "https://sspai.com/feed", "效率与数字生活 · 中文"),
+        RecommendedFeed("IT之家", "https://www.ithome.com/rss", "科技快讯 · 中文"),
+        RecommendedFeed("爱范儿", "https://www.ifanr.com/feed", "消费科技 · 中文"),
+        RecommendedFeed("Solidot", "https://www.solidot.org/index.rss", "技术新闻 · 中文"),
     )
 
     fun reminderById(ctx: Context, id: Long): Reminder? = c(ctx).reminders.byId(id)
@@ -275,7 +280,7 @@ object HubUi {
             val (text, level) = when {
                 !def.enabled -> "已停用" to HealthLevel.INFO
                 s.lastError != null && s.fails > 0 ->
-                    "连续 ${s.fails} 次失败：${s.lastError.take(80)}" to
+                    ("连续 ${s.fails} 次失败：${s.lastError.take(80)}" + backoffNote(def, s.fails)) to
                         if (s.fails >= 3) HealthLevel.FAIL else HealthLevel.WARN
                 s.lastOk > 0 -> "OK · ${ago(now - s.lastOk)}前 · 累计 ${s.itemsSeen} 条" to HealthLevel.OK
                 else -> "还没检查" to HealthLevel.INFO
@@ -293,6 +298,35 @@ object HubUi {
 
     fun rawSourcesJson(ctx: Context): String = c(ctx).sources.rawJson()
 
+    /** 源管理页只管高级监控源（json/regex/hash）；RSS 的增删改全部在订阅页。 */
+    fun advancedSourceRows(ctx: Context): List<SourceRow> =
+        sourceRows(ctx).filter { it.kind != SourceKind.RSS.wire }
+
+    /** 「编辑全部」只装载高级源；RSS 源不进编辑器，保存时原样保留。 */
+    fun rawAdvancedSourcesJson(ctx: Context): String {
+        val arr = org.json.JSONArray()
+        c(ctx).sources.all().filter { it.kind != SourceKind.RSS }.forEach { arr.put(it.raw) }
+        return arr.toString(2)
+    }
+
+    /**
+     * 保存「编辑全部」的结果：以编辑后的高级源为准整体替换；
+     * 既有 RSS 源原样保留，编辑内容里同名/rss 条目按 upsert 语义覆盖。
+     */
+    fun saveAdvancedSourcesJson(ctx: Context, json: String): Result<Unit> = runCatching {
+        val c = c(ctx)
+        val edited = dev.watchhub.app.source.SourceDef.parseAll(json)
+        val byName = LinkedHashMap<String, dev.watchhub.app.source.SourceDef>()
+        c.sources.all().filter { it.kind == SourceKind.RSS }.forEach { byName[it.name] = it }
+        edited.forEach { byName[it.name] = it }
+        val merged = org.json.JSONArray()
+        byName.values.forEach { merged.put(it.raw) }
+        c.sources.replaceAll(merged.toString())
+        reconcileAsync(ctx)
+    }.recoverCatching { t ->
+        throw IllegalArgumentException(t.message ?: "保存失败")
+    }
+
     /** 订阅源列表（kind=rss）。 */
     fun subscriptions(ctx: Context): List<SubscriptionRow> {
         val c = c(ctx)
@@ -305,7 +339,7 @@ object HubUi {
                 enabled = def.enabled,
                 statusText = when {
                     !def.enabled -> "已暂停"
-                    state.lastError != null -> "抓取失败：${state.lastError.take(60)}"
+                    state.lastError != null -> "抓取失败：${state.lastError.take(60)}" + backoffNote(def, state.fails)
                     state.lastOk > 0 -> "更新于 ${ago(now - state.lastOk)}前"
                     else -> "等待首次抓取"
                 },
@@ -663,6 +697,16 @@ object HubUi {
         Priority.NORMAL -> "普通"
         Priority.LOW -> "低"
     }
+
+    /** 连续失败进入退避时的用户提示；间隔计算全部在 Backoff（纯函数，有单测）。 */
+    private fun backoffNote(def: SourceDef, fails: Int): String =
+        if (fails >= Backoff.FAIL_THRESHOLD) {
+            " · 已降频至每 " + Backoff.intervalText(
+                Backoff.effectiveIntervalSec(def.intervalSec, fails),
+            )
+        } else {
+            ""
+        }
 
     private fun formatWhen(ms: Long): String {
         val zone = ZoneId.systemDefault()

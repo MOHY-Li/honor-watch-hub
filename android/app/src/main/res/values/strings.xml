@@ -70,7 +70,7 @@
     <!-- 源 -->
     <string name="sources_new">添加规则</string>
     <string name="sources_edit_all">编辑全部 JSON</string>
-    <string name="sources_empty">还没有抓取规则。点「添加规则」配置 RSS / JSON / 正则 / 网页指纹。</string>
+    <string name="sources_empty">还没有高级监控源。RSS 订阅在「订阅」页添加和管理；这里配置 JSON / 正则 / 网页指纹规则。</string>
     <string name="source_check_now">立即检查</string>
     <string name="source_checking">正在检查「%1$s」…</string>
     <string name="source_check_result">%1$s：%2$d 条新事件</string>
@@ -140,7 +140,6 @@
     <string name="subs_delete_confirm_desc">该源的文章和已读记录会一起删除，之后不再抓取。</string>
     <string name="subs_mark_all">全部已读</string>
     <string name="subs_mark_all_done">已将 %1$d 条标记为已读</string>
-    <string name="subs_filter_all">全部</string>
     <string name="subs_unread_only">只看未读</string>
     <string name="subs_articles_empty">还没有文章，点右上角刷新或等下一轮抓取</string>
     <string name="subs_no_summary">（没有摘要）</string>

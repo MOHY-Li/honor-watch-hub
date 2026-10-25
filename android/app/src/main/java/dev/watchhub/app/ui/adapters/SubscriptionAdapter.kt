@@ -6,16 +6,30 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.MaterialColors
 import dev.watchhub.app.R
 import dev.watchhub.app.databinding.ItemSubscriptionBinding
 import dev.watchhub.app.ui.HubUi
 
-/** 订阅源横向列表：未读数、状态、编辑、暂停/恢复、取消订阅。 */
+/**
+ * 订阅源横向列表：点卡片按该源筛选（再点一次回全部），卡片上的按钮管编辑/暂停/取消。
+ * 筛选没有单独的控件行——同一份订阅列表既是管理入口也是筛选入口。
+ */
 class SubscriptionAdapter(
+    private val onFilter: (HubUi.SubscriptionRow) -> Unit,
     private val onToggle: (HubUi.SubscriptionRow, Boolean) -> Unit,
     private val onEdit: (HubUi.SubscriptionRow) -> Unit,
     private val onDelete: (HubUi.SubscriptionRow) -> Unit,
 ) : ListAdapter<HubUi.SubscriptionRow, SubscriptionAdapter.VH>(Diff) {
+
+    /** 当前筛选选中的源名；null = 全部。变更后调 [setSelection] 触发重绑。 */
+    private var selectedName: String? = null
+
+    fun setSelection(name: String?) {
+        selectedName = name
+        @Suppress("NotifyDataSetChanged")
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
         VH(ItemSubscriptionBinding.inflate(LayoutInflater.from(parent.context), parent, false))
@@ -36,6 +50,16 @@ class SubscriptionAdapter(
             binding.btnToggle.setOnClickListener { onToggle(row, !row.enabled) }
             binding.btnEdit.setOnClickListener { onEdit(row) }
             binding.btnDelete.setOnClickListener { onDelete(row) }
+
+            binding.root.setOnClickListener { onFilter(row) }
+            if (row.name == selectedName) {
+                binding.root.strokeColor = MaterialColors.getColor(
+                    binding.root, com.google.android.material.R.attr.colorPrimary,
+                )
+                binding.root.strokeWidth = (2 * ctx.resources.displayMetrics.density).toInt()
+            } else {
+                binding.root.strokeWidth = 0
+            }
 
             binding.name.alpha = if (row.enabled) 1f else 0.5f
             binding.status.alpha = if (row.enabled) 1f else 0.6f

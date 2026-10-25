@@ -236,7 +236,8 @@ class Health(
             out.add(
                 HealthItem(
                     "sources", "数据源异常",
-                    failing.take(3).joinToString("、") { "${it.name}（连续 ${it.fails} 次失败）" },
+                    failing.take(3).joinToString("、") { "${it.name}（连续 ${it.fails} 次失败，已自动降频）" } +
+                        "；多为网络不可达，可暂停或删除",
                     HealthLevel.WARN,
                 )
             )

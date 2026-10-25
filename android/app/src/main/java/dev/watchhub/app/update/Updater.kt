@@ -30,14 +30,18 @@ object Updater {
     private const val APK_NAME = "watchhub-update.apk"
 
     /**
-     * 清单候选地址，按顺序尝试。raw.githubusercontent.com 在国内经常不通，
-     * jsDelivr 走国内 CDN，GitHub API 是第三条独立线路。
+     * 清单候选地址，按顺序尝试。api.github.com 在国内相对最稳且必带最新版与 digest，
+     * 放第一；jsDelivr 走国内 CDN 但 `@master` 会缓存旧文件；raw.githubusercontent
+     * 国内基本不可达，作第三条独立线路兜底。
      */
     val MANIFEST_URLS: List<String> = listOf(
+        "https://api.github.com/repos/MOHY-Li/honor-watch-hub/releases/latest",
         "https://cdn.jsdelivr.net/gh/MOHY-Li/honor-watch-hub@master/dist/latest.json",
         "https://raw.githubusercontent.com/MOHY-Li/honor-watch-hub/master/dist/latest.json",
-        "https://api.github.com/repos/MOHY-Li/honor-watch-hub/releases/latest",
     )
+
+    /** 清单是轻量 JSON，单线路 10s 超时：三条线路全挂也就 30s，不再让用户等 20s×3。 */
+    private const val MANIFEST_TIMEOUT_MS = 10_000
 
     /**
      * 检查新版本。网络操作，必须在后台线程调用。
@@ -61,6 +65,7 @@ object Updater {
             try {
                 val json = Http.execute(
                     "GET", url, mapOf("Accept" to "application/vnd.github+json"),
+                    timeoutMs = MANIFEST_TIMEOUT_MS,
                 ).text()
                 val m = parseAny(json)
                 if (m == null) {

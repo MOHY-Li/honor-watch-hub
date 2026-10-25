@@ -16,7 +16,7 @@ import dev.watchhub.app.databinding.FragmentSourcesBinding
 import dev.watchhub.app.source.SourceKind
 import dev.watchhub.app.ui.adapters.SourceAdapter
 
-/** 源页：列表、启停、立即检查、编辑、新增、编辑全部 JSON。 */
+/** 源管理页：只管高级监控源（JSON/正则/指纹）的列表、启停、立即检查、编辑、新增。RSS 在订阅页管理。 */
 class SourcesFragment : Fragment() {
 
     private var _binding: FragmentSourcesBinding? = null
@@ -76,13 +76,14 @@ class SourcesFragment : Fragment() {
 
     private fun refresh() {
         if (_binding == null) return
-        val rows = runCatching { HubUi.sourceRows(ctx) }.getOrElse { emptyList() }
+        val rows = runCatching { HubUi.advancedSourceRows(ctx) }.getOrElse { emptyList() }
         adapter.submitList(rows)
         binding.empty.visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
     }
 
+    /** RSS 不在这里新增（订阅页「添加订阅」才是 RSS 入口），只提供三种高级源。 */
     private fun chooseKind() {
-        val kinds = SourceKind.entries
+        val kinds = listOf(SourceKind.JSON, SourceKind.REGEX, SourceKind.HASH)
         val labels = kinds.map { kindLabel(it) }.toTypedArray()
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.source_edit_new)

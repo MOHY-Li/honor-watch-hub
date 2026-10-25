@@ -43,8 +43,8 @@ class SourceEditActivity : AppCompatActivity() {
         when {
             editAll -> {
                 binding.toolbar.title = getString(R.string.sources_edit_all)
-                binding.hint.text = "整个数据源数组（JSON Array）。保存前会严格校验。"
-                binding.etJson.setText(runCatching { HubUi.rawSourcesJson(this) }.getOrDefault("[]"))
+                binding.hint.text = "高级源（JSON/正则/指纹）数组。RSS 订阅不在此编辑，保存时原样保留。"
+                binding.etJson.setText(runCatching { HubUi.rawAdvancedSourcesJson(this) }.getOrDefault("[]"))
                 binding.btnDelete.visibility = android.view.View.GONE
             }
             originalName != null -> {
@@ -149,7 +149,8 @@ class SourceEditActivity : AppCompatActivity() {
     }
 
     private fun saveJson(json: String) {
-        HubUi.saveSourcesJson(this, json)
+        val result = if (editAll) HubUi.saveAdvancedSourcesJson(this, json) else HubUi.saveSourcesJson(this, json)
+        result
             .onSuccess {
                 Toast.makeText(this, "已保存", Toast.LENGTH_SHORT).show()
                 finish()

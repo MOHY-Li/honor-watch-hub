@@ -1,5 +1,6 @@
 package dev.watchhub.app.engine
 
+import dev.watchhub.app.core.Backoff
 import dev.watchhub.app.core.Clock
 import dev.watchhub.app.core.LogBus
 import dev.watchhub.app.core.model.Alert
@@ -37,7 +38,7 @@ class Poller(
         val now = clock.now()
         for (def in sources.all()) {
             if (!def.enabled) continue
-            if (now < (lastRun[def.name] ?: 0L) + def.intervalSec * 1000L) continue
+            if (now < (lastRun[def.name] ?: 0L) + effectiveIntervalMs(def)) continue
 
             // 同一个源不并发检查；但卡住太久（网络挂住）要放行重试，否则该源永久瘫痪
             val startedAt = inFlight[def.name]
@@ -60,8 +61,15 @@ class Poller(
 
     /** 是否有到期的源需要联网检查（服务用它决定要不要持 wake lock）。 */
     fun hasDueWork(now: Long): Boolean = sources.all().any { def ->
-        def.enabled && now >= (lastRun[def.name] ?: 0L) + def.intervalSec * 1000L
+        def.enabled && now >= (lastRun[def.name] ?: 0L) + effectiveIntervalMs(def)
     }
+
+    /**
+     * 该源下一次到期检查的间隔：连续失败达到阈值后指数退避（见 [Backoff]），
+     * 成功一次自动恢复。手动 [checkNow] 不经过这里。
+     */
+    private fun effectiveIntervalMs(def: SourceDef): Long =
+        Backoff.effectiveIntervalSec(def.intervalSec, sources.stateOf(def.name).fails) * 1000L
 
     /** 手动触发某个源（忽略倒计时）。 */
     fun checkNow(name: String): Int {

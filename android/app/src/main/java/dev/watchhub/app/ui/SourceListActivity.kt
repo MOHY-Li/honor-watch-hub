@@ -6,10 +6,10 @@ import dev.watchhub.app.R
 import dev.watchhub.app.databinding.ActivitySourceListBinding
 
 /**
- * 源管理（独立二级页）。
+ * 源管理（独立二级页）：只管高级监控源（JSON/正则/指纹）。
  *
- * 2.2.1 把底栏的「源」tab 合并进「订阅」：日常只阅读，需要改抓取规则时从订阅页
- * 顶部的「源管理」进来。源页本体（SourcesFragment）原样复用，避免两套实现。
+ * 2.2.1 把底栏的「源」tab 合并进「订阅」；2.4.2 进一步把 RSS 的增删改全部收敛到订阅页，
+ * 这里只剩抓取规则类源，避免同一个 RSS 有两个管理入口。源页本体（SourcesFragment）原样复用。
  */
 class SourceListActivity : AppCompatActivity() {
 

@@ -17,7 +17,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -27,7 +26,7 @@ import dev.watchhub.app.ui.adapters.ArticleAdapter
 import dev.watchhub.app.ui.adapters.SubscriptionAdapter
 
 /**
- * RSS 订阅：添加订阅、暂停/取消、按源筛选、只看未读、阅读文章。
+ * RSS 订阅：添加订阅、暂停/取消、点卡片筛选文章、只看未读、阅读文章。
  *
  * 网络操作（addRssSubscription）全部在后台线程，结果回主线程；
  * Fragment 销毁后不再碰 View。
@@ -41,7 +40,6 @@ class SubscriptionsFragment : Fragment() {
     private lateinit var subscriptionAdapter: SubscriptionAdapter
     private var subscriptions: List<HubUi.SubscriptionRow> = emptyList()
     private var selectedSource: String? = null
-    private var rebuildingChips = false
     private var adding = false
     private val ctx get() = requireContext().applicationContext
 
@@ -53,6 +51,7 @@ class SubscriptionsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         articleAdapter = ArticleAdapter { row -> openArticle(row) }
         subscriptionAdapter = SubscriptionAdapter(
+            onFilter = { row -> toggleFilter(row.name) },
             onEdit = { row ->
                 startActivity(
                     Intent(requireContext(), SourceEditActivity::class.java)
@@ -81,14 +80,6 @@ class SubscriptionsFragment : Fragment() {
         }
         binding.btnRefresh.setOnClickListener { refreshSubscriptions() }
         binding.swUnread.setOnCheckedChangeListener { _, _ -> refreshArticles() }
-        binding.chipSources.isSelectionRequired = true
-        binding.chipSources.setOnCheckedStateChangeListener { group, checkedIds ->
-            if (rebuildingChips) return@setOnCheckedStateChangeListener
-            val id = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
-            val chip = group.findViewById<Chip>(id) ?: return@setOnCheckedStateChangeListener
-            selectedSource = chip.tag as? String
-            refreshArticles()
-        }
     }
 
     override fun onResume() {
@@ -120,11 +111,17 @@ class SubscriptionsFragment : Fragment() {
         if (selectedSource != null && rows.none { it.name == selectedSource }) selectedSource = null
         subscriptions = rows
         subscriptionAdapter.submitList(rows)
+        subscriptionAdapter.setSelection(selectedSource)
         b.subsList.visibility = if (rows.isEmpty()) View.GONE else View.VISIBLE
         b.subsEmpty.visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
-        rebuildChips(rows)
         refreshArticles()
         updateBadge()
+    }
+
+    /** 点订阅卡 = 只看该源；再点一次 = 回全部。 */
+    private fun toggleFilter(name: String) {
+        selectedSource = if (selectedSource == name) null else name
+        refreshAll()
     }
 
     private fun refreshArticles() {
@@ -144,37 +141,6 @@ class SubscriptionsFragment : Fragment() {
         }
         b.unreadCount.text = getString(R.string.subs_unread, unread)
         b.unreadCount.visibility = if (unread > 0) View.VISIBLE else View.GONE
-    }
-
-    private fun rebuildChips(rows: List<HubUi.SubscriptionRow>) {
-        val b = _binding ?: return
-        rebuildingChips = true
-        b.chipSources.removeAllViews()
-        val chips = ArrayList<Pair<Chip, String?>>()
-
-        val all = Chip(requireContext()).apply {
-            text = getString(R.string.subs_filter_all)
-            isCheckable = true
-            id = View.generateViewId()
-            tag = null
-        }
-        b.chipSources.addView(all)
-        chips.add(all to null)
-
-        rows.forEach { row ->
-            val chip = Chip(requireContext()).apply {
-                text = row.name
-                isCheckable = true
-                id = View.generateViewId()
-                tag = row.name
-            }
-            b.chipSources.addView(chip)
-            chips.add(chip to row.name)
-        }
-
-        val target = chips.firstOrNull { it.second == selectedSource } ?: chips.first()
-        target.first.isChecked = true
-        rebuildingChips = false
     }
 
     private fun updateBadge() {
