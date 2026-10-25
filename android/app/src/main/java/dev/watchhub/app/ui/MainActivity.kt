@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import dev.watchhub.app.App
 import dev.watchhub.app.R
 import dev.watchhub.app.core.model.DeliveryState
 import dev.watchhub.app.databinding.ActivityMainBinding
@@ -19,11 +20,22 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * 主界面：底部导航 + 5 个 Fragment。
+ * 主界面：底部导航 + 4 个 Fragment（健康/任务/订阅/设置）。
  *
+ * tab 是声明式注册的（学 FlClash 0.9 的 NavigationItem）：加页签只改 [TABS] 和 menu xml。
  * 通知点击进来时会带 [EXTRA_ALERT_ID]，这里负责把那条提醒的详情弹出来。
  */
 class MainActivity : AppCompatActivity() {
+
+    /** 一个底栏页签的声明：菜单 id + Fragment 工厂。 */
+    private data class Tab(val id: Int, val create: () -> Fragment)
+
+    private val tabs: List<Tab> = listOf(
+        Tab(R.id.nav_health) { HealthFragment() },
+        Tab(R.id.nav_tasks) { TasksFragment() },
+        Tab(R.id.nav_subscriptions) { SubscriptionsFragment() },
+        Tab(R.id.nav_settings) { SettingsFragment() },
+    )
 
     companion object {
         const val EXTRA_ALERT_ID = "alert_id"
@@ -33,6 +45,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var currentTag: String? = null
+    private val onChanged: () -> Unit = { updateSubscriptionsBadge() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,14 +56,20 @@ class MainActivity : AppCompatActivity() {
             switchTo(item.itemId)
             true
         }
-        // 从旧版本恢复的 id 可能已不在菜单里（2.2.1 删掉了 nav_sources），回退首页
-        val restoredRaw = savedInstanceState?.getInt(KEY_TAB, R.id.nav_home) ?: R.id.nav_home
-        val restored = if (binding.bottomNav.menu.findItem(restoredRaw) != null) restoredRaw else R.id.nav_home
+        // 恢复的 tab id 可能已不在菜单里（比如 2.6.0 删掉的 nav_home），回退第一个
+        val restoredRaw = savedInstanceState?.getInt(KEY_TAB, tabs.first().id) ?: tabs.first().id
+        val restored = if (binding.bottomNav.menu.findItem(restoredRaw) != null) restoredRaw else tabs.first().id
         binding.bottomNav.selectedItemId = restored
         switchTo(restored)
 
+        App.container(this).changes.register(onChanged)
         handleIntentAlert(intent)
         askNotificationPermissionIfNeeded()
+    }
+
+    override fun onDestroy() {
+        App.container(this).changes.unregister(onChanged)
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -85,12 +104,8 @@ class MainActivity : AppCompatActivity() {
         updateSubscriptionsBadge()
     }
 
-    private fun newFragmentFor(tabId: Int): Fragment = when (tabId) {
-        R.id.nav_tasks -> TasksFragment()
-        R.id.nav_subscriptions -> SubscriptionsFragment()
-        R.id.nav_settings -> SettingsFragment()
-        else -> HomeFragment()
-    }
+    private fun newFragmentFor(tabId: Int): Fragment =
+        tabs.firstOrNull { it.id == tabId }?.create?.invoke() ?: tabs.first().create()
 
     /** 订阅 tab 的未读角标。Fragment 读完文章也会回调这里刷新。 */
     fun updateSubscriptionsBadge() {

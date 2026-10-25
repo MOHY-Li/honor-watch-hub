@@ -1,6 +1,9 @@
 package dev.watchhub.app
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import dev.watchhub.app.core.ChangeBus
 import dev.watchhub.app.core.Clock
 import dev.watchhub.app.core.WallClock
 import dev.watchhub.app.data.AlertStore
@@ -32,6 +35,9 @@ class Container(context: Context) {
 
     val ctx: Context = context.applicationContext
     val clock: Clock = WallClock
+
+    /** UI 变更总线：写操作后通知已打开的页面即时刷新（监听者在主线程回调）。 */
+    val changes = ChangeBus { r -> Handler(Looper.getMainLooper()).post(r) }
 
     val db = Db(ctx)
     val settings = SettingsStore(db)

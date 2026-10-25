@@ -3,7 +3,7 @@
     <string name="app_name">WatchHub</string>
 
     <!-- 底部导航 -->
-    <string name="nav_home">首页</string>
+    <string name="nav_health">健康</string>
     <string name="nav_tasks">任务</string>
     <string name="nav_settings">设置</string>
 
@@ -20,15 +20,11 @@
     <string name="empty_list">暂无内容</string>
 
     <!-- 首页 -->
-    <string name="home_hub_title">中枢状态</string>
-    <string name="home_hub_running">中枢运行中，任务到期会通过通知镜像到手表</string>
-    <string name="home_hub_stopped">中枢已停止，任务不会触发提醒</string>
-    <string name="home_next_title">下一次提醒</string>
     <string name="home_next_none">暂时没有待触发的提醒</string>
-    <string name="home_health_title">链路体检摘要</string>
+    <string name="home_health_fail_n">链路异常：%1$d 项需要处理 · 点击查看体检</string>
+    <string name="home_health_warn_n">链路需注意：%1$d 项建议检查 · 点击查看体检</string>
+    <string name="home_health_ok">链路正常 · 点击查看体检</string>
     <string name="home_sources_title">数据源健康</string>
-    <string name="home_sources_value">%1$d / %2$d 个源正常</string>
-    <string name="home_health_tap">点击查看体检详情</string>
 
     <!-- 任务 -->
     <string name="tasks_new">新建提醒</string>
@@ -183,7 +179,22 @@
     <string name="settings_group_automation">自动化</string>
     <string name="settings_group_diagnostics">诊断</string>
     <string name="settings_group_ai">AI 分析</string>
+    <string name="settings_group_backup">备份与恢复</string>
     <string name="settings_group_about">关于</string>
+    <string name="settings_group_hub">中枢</string>
+    <string name="settings_hub_switch">启用中枢</string>
+    <string name="settings_hub_desc">运行中：任务到期会通过通知镜像到手表</string>
+    <string name="settings_hub_stopped">已停止：任务不会触发提醒</string>
+    <string name="settings_export">导出配置</string>
+    <string name="settings_export_desc">源 / 提醒 / 健康规则 / 偏好存为 JSON（不含 API Key）</string>
+    <string name="settings_import">导入配置</string>
+    <string name="import_action">导入</string>
+    <string name="settings_import_desc">从备份文件合并导入（同名覆盖，不删除现有）</string>
+    <string name="backup_exported">已导出 %1$s</string>
+    <string name="backup_export_failed">导出失败：%1$s</string>
+    <string name="backup_import_confirm">导入 %1$d 个源、%2$d 条提醒、%3$d 条健康规则？同名项会被覆盖。</string>
+    <string name="backup_import_done">导入完成</string>
+    <string name="backup_import_failed">导入失败：%1$s</string>
     <string name="settings_ai_key">DeepSeek API Key</string>
     <string name="settings_ai_key_desc">健康分析调用 DeepSeek；Key 只存本机，不会上传到别处</string>
     <string name="settings_ai_key_empty">未设置</string>

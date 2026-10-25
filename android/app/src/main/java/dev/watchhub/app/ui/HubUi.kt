@@ -342,7 +342,9 @@ object HubUi {
         if (rule.sustainedMin < 1 || rule.cooldownMin < 1) {
             throw IllegalArgumentException("持续时长与冷却时间至少 1 分钟")
         }
-        c.healthRules.upsert(rule)
+        val id = c.healthRules.upsert(rule)
+        c.changes.post()
+        id
     }.recoverCatching { t ->
         throw IllegalArgumentException(
             if (t.message?.contains("UNIQUE", true) == true) "规则名字已被占用" else t.message ?: "保存失败",
@@ -350,12 +352,16 @@ object HubUi {
     }
 
     fun setHealthRuleEnabled(ctx: Context, id: Long, enabled: Boolean) {
-        c(ctx).healthRules.setEnabled(id, enabled)
+        val c = c(ctx)
+        c.healthRules.setEnabled(id, enabled)
+        c.changes.post()
     }
 
     fun deleteHealthRule(ctx: Context, id: Long) {
-        c(ctx).healthRules.delete(id)
+        val c = c(ctx)
+        c.healthRules.delete(id)
         LogBus.post("已删除健康规则 #$id")
+        c.changes.post()
     }
 
     /** 阻塞网络（模型生成可能要 1~2 分钟），必须在后台线程调用。 */
@@ -478,12 +484,14 @@ object HubUi {
     fun markArticleRead(ctx: Context, id: Long) {
         val c = c(ctx)
         c.articles.markRead(id, c.clock.now())
+        c.changes.post()
     }
 
     fun markAllArticlesRead(ctx: Context, source: String? = null): Int {
         val c = c(ctx)
         val n = c.articles.markAllRead(source, c.clock.now())
         LogBus.post("全部标为已读：$source".replace("：null", "（全部）"))
+        c.changes.post()
         return n
     }
 
@@ -526,6 +534,7 @@ object HubUi {
             // 立即拉一次，订阅页马上有内容（失败也不影响订阅本身）
             runCatching { c.poller.checkNow(name) }
             reconcileAsync(ctx)
+            c.changes.post()
             name
         }.recoverCatching { t ->
             throw IllegalArgumentException(t.message ?: "添加订阅失败")
@@ -632,9 +641,11 @@ object HubUi {
     // ---------------- 写操作 ----------------
 
     fun start(ctx: Context) {
-        c(ctx).settings.wantRun = true
+        val c = c(ctx)
+        c.settings.wantRun = true
         HubService.start(ctx)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     fun stop(ctx: Context) {
@@ -643,32 +654,42 @@ object HubUi {
         c.scheduler.cancel()
         HubService.stop(ctx)
         LogBus.post("中枢已停止（提醒不再触发）")
+        c.changes.post()
     }
 
     fun completeTask(ctx: Context, taskId: Long) {
-        c(ctx).engine.complete(taskId)
+        val c = c(ctx)
+        c.engine.complete(taskId)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     fun skipTask(ctx: Context, taskId: Long) {
-        c(ctx).engine.skip(taskId)
+        val c = c(ctx)
+        c.engine.skip(taskId)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     fun snoozeTask(ctx: Context, taskId: Long, minutes: Int = 10) {
-        c(ctx).engine.snooze(taskId, minutes)
+        val c = c(ctx)
+        c.engine.snooze(taskId, minutes)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     fun deleteReminder(ctx: Context, id: Long) {
         val c = c(ctx)
         c.engine.deleteReminder(id)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     fun setReminderEnabled(ctx: Context, id: Long, enabled: Boolean) {
-        c(ctx).reminders.setEnabled(id, enabled)
+        val c = c(ctx)
+        c.reminders.setEnabled(id, enabled)
         reconcileAsync(ctx)
+        c.changes.post()
     }
 
     /** 保存提醒。重名会返回失败，UI 直接把 message 弹给用户。 */
@@ -678,25 +699,32 @@ object HubUi {
         // 改了调度/时间后，旧的未来任务必须按新配置重排
         c.tasks.deleteFutureOpen(id, c.clock.now())
         reconcileAsync(ctx)
+        c.changes.post()
         id
     }.recoverCatching { t ->
         throw IllegalArgumentException(if (t.message?.contains("UNIQUE", true) == true) "提醒名字已被占用" else t.message ?: "保存失败")
     }
 
     fun saveSourcesJson(ctx: Context, json: String): Result<Unit> = runCatching {
-        c(ctx).sources.replaceAll(json)
+        val c = c(ctx)
+        c.sources.replaceAll(json)
         reconcileAsync(ctx)
+        c.changes.post()
     }.recoverCatching { t ->
         throw IllegalArgumentException(t.message ?: "保存失败")
     }
 
     fun setSourceEnabled(ctx: Context, name: String, enabled: Boolean) {
-        c(ctx).sources.setEnabled(name, enabled)
+        val c = c(ctx)
+        c.sources.setEnabled(name, enabled)
+        c.changes.post()
     }
 
     fun deleteSource(ctx: Context, name: String) {
-        c(ctx).sources.delete(name)
+        val c = c(ctx)
+        c.sources.delete(name)
         LogBus.post("已删除数据源 $name")
+        c.changes.post()
     }
 
     /** 阻塞网络调用，必须在后台线程调用。 */
@@ -720,6 +748,48 @@ object HubUi {
 
     fun setAiAutoWeekly(ctx: Context, value: Boolean) {
         c(ctx).settings.aiAutoWeekly = value
+    }
+
+    // ---------------- 配置备份 ----------------
+
+    /** 导出全部配置为 JSON 文本（不含 API Key 等凭据，见 ConfigExchange）。 */
+    fun exportConfig(ctx: Context): String {
+        val c = c(ctx)
+        return dev.watchhub.app.engine.ConfigExchange.export(
+            sources = c.sources.all(),
+            reminders = c.reminders.all(),
+            rules = c.healthRules.all(),
+            settings = mapOf(
+                "start_on_boot" to c.settings.startOnBoot,
+                "calendar_enabled" to c.settings.calendarEnabled,
+                "ai_auto_weekly" to c.settings.aiAutoWeekly,
+            ),
+        )
+    }
+
+    /** 只解析校验，不落库；UI 用它显示导入预览。 */
+    fun previewImportConfig(json: String): dev.watchhub.app.engine.ConfigExchange.Parsed =
+        dev.watchhub.app.engine.ConfigExchange.parse(json)
+
+    /** 应用导入（合并语义：按 name upsert，不删除未提及项）。 */
+    fun applyImportConfig(ctx: Context, parsed: dev.watchhub.app.engine.ConfigExchange.Parsed) {
+        val c = c(ctx)
+        parsed.sources.forEach { c.sources.upsert(it) }
+        parsed.reminders.forEach { r ->
+            val existing = c.reminders.byName(r.name)
+            val id = c.reminders.upsert(if (existing != null) r.copy(id = existing.id) else r)
+            // 调度可能变了，旧的未来任务按新配置重排
+            c.tasks.deleteFutureOpen(id, c.clock.now())
+        }
+        val ruleNames = c.healthRules.all().associate { it.name to it.id }
+        parsed.rules.forEach { r ->
+            c.healthRules.upsert(if (r.name in ruleNames) r.copy(id = ruleNames.getValue(r.name)) else r)
+        }
+        if ("start_on_boot" in parsed.settings) c.settings.startOnBoot = parsed.settings.getValue("start_on_boot")
+        if ("calendar_enabled" in parsed.settings) c.settings.calendarEnabled = parsed.settings.getValue("calendar_enabled")
+        if ("ai_auto_weekly" in parsed.settings) c.settings.aiAutoWeekly = parsed.settings.getValue("ai_auto_weekly")
+        reconcileAsync(ctx)
+        c.changes.post()
     }
 
     /** 立即对齐一次（补任务、派发 outbox、排闹钟）。 */

@@ -3,12 +3,14 @@ package dev.watchhub.app.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -16,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import dev.watchhub.app.App
 import dev.watchhub.app.R
 import dev.watchhub.app.databinding.FragmentSettingsBinding
 import dev.watchhub.app.health.HealthAction
@@ -59,6 +62,20 @@ class SettingsFragment : Fragment() {
             refresh()
         }
 
+    /** 配置导出：系统保存对话框 → 写 JSON。取消返回 null，无事发生。 */
+    private val exportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) writeExport(uri)
+        }
+
+    /** 配置导入：选文件 → 预览确认 → 合并应用。 */
+    private val importLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) readImport(uri)
+        }
+
+    private val onChanged: () -> Unit = { if (!isDetached) refresh() }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         return binding.root
@@ -95,6 +112,17 @@ class SettingsFragment : Fragment() {
             HubUi.setAiAutoWeekly(ctx, checked)
         }
 
+        binding.switchHub.setOnCheckedChangeListener { _, checked ->
+            if (updating) return@setOnCheckedChangeListener
+            runCatching {
+                if (checked) HubUi.start(ctx) else HubUi.stop(ctx)
+            }.onFailure { toast("操作失败：" + (it.message ?: it.javaClass.simpleName)) }
+            refresh()
+        }
+
+        binding.btnExport.setOnClickListener { exportLauncher.launch("watchhub-backup.json") }
+        binding.btnImport.setOnClickListener { importLauncher.launch(arrayOf("application/json")) }
+
         binding.btnHealth.setOnClickListener {
             startActivity(Intent(requireContext(), HealthActivity::class.java))
         }
@@ -105,12 +133,18 @@ class SettingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        App.container(ctx).changes.register(onChanged)
         if (pendingInstallRetry) {
             pendingInstallRetry = false
             // 用户从「安装未知应用」授权页回来，直接重试拉起安装器
             installUpdate()
         }
         refresh()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        App.container(ctx).changes.unregister(onChanged)
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
@@ -127,15 +161,70 @@ class SettingsFragment : Fragment() {
     private fun refresh() {
         val b = _binding ?: return
         val snapshot = runCatching { HubUi.settings(ctx) }.getOrNull() ?: return
+        val home = runCatching { HubUi.home(ctx) }.getOrNull()
         updating = true
         b.switchBoot.isChecked = snapshot.startOnBoot
         b.switchCalendar.isChecked = snapshot.calendarEnabled
         b.switchAiAuto.isChecked = snapshot.aiAutoWeekly
+        if (home != null) {
+            b.switchHub.isChecked = home.wantRun
+            b.hubDesc.text = getString(
+                if (home.wantRun && home.running) R.string.settings_hub_desc else R.string.settings_hub_stopped,
+            )
+            SourceStatusList.render(b.sourcesContainer as LinearLayout, home.sourceStates)
+        }
         b.btnAiKey.text = getString(
             if (HubUi.aiApiKey(ctx).isEmpty()) R.string.settings_ai_key_empty else R.string.settings_ai_key_set,
         )
         b.version.text = "WatchHub ${HubUi.versionName()} (${HubUi.versionCode()})"
         updating = false
+    }
+
+    // ---------------- 配置备份 ----------------
+
+    private fun writeExport(uri: Uri) {
+        runCatching {
+            requireContext().contentResolver.openOutputStream(uri)?.use { out ->
+                out.write(HubUi.exportConfig(ctx).toByteArray(Charsets.UTF_8))
+            } ?: throw IllegalStateException("打不开目标文件")
+        }.onSuccess {
+            toast(getString(R.string.backup_exported, uri.lastPathSegment ?: "文件"))
+        }.onFailure {
+            toast(getString(R.string.backup_export_failed, it.message ?: "未知错误"))
+        }
+    }
+
+    private fun readImport(uri: Uri) {
+        val text = runCatching {
+            requireContext().contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull()
+        if (text == null) {
+            toast(getString(R.string.backup_import_failed, "读不了这个文件"))
+            return
+        }
+        val parsed = runCatching { HubUi.previewImportConfig(text) }
+            .getOrElse {
+                toast(getString(R.string.backup_import_failed, it.message ?: "格式不对"))
+                return
+            }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_import)
+            .setMessage(
+                getString(
+                    R.string.backup_import_confirm,
+                    parsed.sources.size, parsed.reminders.size, parsed.rules.size,
+                ),
+            )
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.import_action) { _, _ ->
+                runCatching { HubUi.applyImportConfig(ctx, parsed) }
+                    .onSuccess {
+                        toast(getString(R.string.backup_import_done))
+                        refresh()
+                    }
+                    .onFailure { toast(getString(R.string.backup_import_failed, it.message ?: "未知错误")) }
+            }
+            .show()
     }
 
     /** DeepSeek API Key 编辑：密码框，只存本机。 */
